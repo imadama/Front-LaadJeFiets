@@ -1,0 +1,24 @@
+{
+    "workbench.colorCustomizations": {
+        "[Gruvbox Dark Hard]": {
+            "button.background": "#45858880",
+            "dropdown.background": "#1d2021bf",
+            "input.background": "#ebdbb205",
+            "sideBar.background": "#1d202133",
+            "sideBarSectionHeader.background": "#1d202100",
+            "activityBar.background": "#1d202133",
+            "editorGroupHeader.tabsBackground": "#1d202133",
+            "tab.activeBackground": "#32302f33",
+            "tab.inactiveBackground": "#1d202133",
+            "editor.background": "#1d2021bf",
+            "editor.lineHighlightBackground": "#3c383660",
+            "editorGutter.background": "#1d202100",
+            "statusBar.background": "#1d202133",
+            "statusBar.noFolderBackground": "#1d202133",
+            "terminal.background": "#1d202133"
+        },
+        "terminal.background": "#00000000",
+        "minimap.background": "#00000000",
+        "scrollbar.shadow": "#00000000"
+    }
+}
