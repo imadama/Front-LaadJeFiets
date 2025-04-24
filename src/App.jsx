@@ -7,7 +7,7 @@ function App() {
   useEffect(() => {
     async function fetchHello() {
       try {
-        const response = await fetch('http://127.0.0.1:8000/hello')
+        const response = await fetch('http://192.168.1.101:8000/hello')
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
