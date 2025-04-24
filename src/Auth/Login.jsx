@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ function Login() {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          username: formData.username,
           password: formData.password,
         }),
       });
@@ -67,14 +67,14 @@ function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="form-control">
               <label className="label">
-                <span className="label-text">Email</span>
+                <span className="label-text">Gebruikersnaam</span>
               </label>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
-                placeholder="email@voorbeeld.nl"
+                placeholder="Gebruikersnaam"
                 className="input input-bordered"
                 required
               />

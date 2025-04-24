@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -38,6 +39,7 @@ function Register() {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
+          username: formData.username,
           email: formData.email,
           password: formData.password,
         }),
@@ -69,6 +71,20 @@ function Register() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Gebruikersnaam</span>
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Gebruikersnaam"
+                className="input input-bordered"
+                required
+              />
+            </div>
             <div className="form-control">
               <label className="label">
                 <span className="label-text">Email</span>
