@@ -40,9 +40,25 @@ function Dashboard() {
     fetchUserData();
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch('http://192.168.1.101:8000/api/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error bij uitloggen:', error);
+    } finally {
+      // Verwijder de token uit localStorage en navigeer naar login
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
   };
 
   if (isLoading) {
