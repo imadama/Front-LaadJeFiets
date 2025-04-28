@@ -77,7 +77,7 @@ function Dashboard() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="card-title text-2xl">Dashboard</h2>
               <button onClick={handleLogout} className="btn btn-ghost">
-                Uitloggen
+               Logout
               </button>
             </div>
             
@@ -85,7 +85,7 @@ function Dashboard() {
               <div className="stats shadow">
                 <div className="stat">
                   <div className="stat-title">Email</div>
-                  <div className="stat-value">{user?.email}</div>
+                  <div className="stat-value text-sm md:text-2xl">{user?.email}</div>
                 </div>
               </div>
               
@@ -105,4 +105,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard; 
+export default Dashboard;
