@@ -16,7 +16,7 @@ function Dashboard() {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://192.168.1.101:8000/api/user', {
+        const response = await fetch('http://10.10.0.161:8000/api/user', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
@@ -44,7 +44,7 @@ function Dashboard() {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        await fetch('http://192.168.1.101:8000/api/logout', {
+        await fetch('http://10.10.0.161:8000/api/logout', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

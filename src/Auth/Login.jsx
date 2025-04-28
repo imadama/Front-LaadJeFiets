@@ -24,7 +24,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://192.168.1.101:8000/api/login', {
+      const response = await fetch('http://10.10.0.161:8000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

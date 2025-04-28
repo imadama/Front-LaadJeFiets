@@ -32,7 +32,7 @@ function Register() {
     }
 
     try {
-      const response = await fetch('http://192.168.1.101:8000/api/register', {
+      const response = await fetch('http://10.10.0.161:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +45,12 @@ function Register() {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        throw new Error('Ongeldige server response');
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Er is iets misgegaan bij de registratie');
