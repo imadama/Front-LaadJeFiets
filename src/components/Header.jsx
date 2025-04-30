@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import SettingsModal from './SettingsModal';
+import NotificationsModal from './NotificationsModal';
 
 function Header() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [showSettings, setShowSettings] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Apply theme on initial render
   useEffect(() => {
@@ -46,11 +49,44 @@ function Header() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/notifications`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Could not fetch notifications');
+        }
+
+        const data = await response.json();
+        setNotifications(data);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchNotifications();
+    const intervalId = setInterval(fetchNotifications, 2000);
+    return () => clearInterval(intervalId);
+  }, [user?.id]);
+
   const handleThemeChange = (e) => {
     const newTheme = e.target.value;
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
   };
 
   return (
@@ -62,6 +98,22 @@ function Header() {
         <div className="flex-none gap-4">
           {user ? (
             <>
+              <button 
+                className="btn btn-ghost btn-circle"
+                onClick={() => setShowNotifications(true)}
+              >
+                <div className="indicator">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {notifications.length > 0 && (
+                    <span className="badge badge-xs badge-primary indicator-item">
+                      {notifications.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+
               <div className="dropdown dropdown-end">
                 <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
                   <div className="w-10 rounded-full">
@@ -111,6 +163,14 @@ function Header() {
         user={user}
         theme={theme}
         onThemeChange={handleThemeChange}
+      />
+
+      <NotificationsModal
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        notifications={notifications}
+        userId={user?.id}
+        onClear={handleClearNotifications}
       />
     </>
   );
