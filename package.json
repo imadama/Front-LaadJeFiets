@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lordicon/react": "^1.10.1",
+    "@lottiefiles/dotlottie-react": "^0.13.5",
     "@tailwindcss/vite": "^4.1.4",
     "daisyui": "^5.0.28",
     "fontawesome": "^5.6.3",
