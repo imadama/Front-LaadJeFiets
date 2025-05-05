@@ -126,6 +126,10 @@ function Dashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      const socketData = {
+        socket_id: `charger_${socketForm.socket_id}`
+      };
+      
       const response = await fetch('http://127.0.0.1:8000/api/socket/new', {
         method: 'POST',
         headers: {
@@ -133,7 +137,7 @@ function Dashboard() {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(socketForm)
+        body: JSON.stringify(socketData)
       });
 
       if (!response.ok) {
@@ -222,7 +226,12 @@ function Dashboard() {
                   </div>
                 ) : sockets.length === 0 ? (
                   <div className="alert alert-warning">
-                    <span>Je hebt nog geen sockets toegevoegd. Klik op "Nieuwe Socket" om er een toe te voegen.</span>
+                    <div className="flex items-center gap-2 w-full">
+                      <i className="fas fa-exclamation-triangle text-warning text-xl opacity-100"></i>
+                      <span className="text-warning-content text-sm md:text-base">
+                        Je hebt nog geen sockets toegevoegd. Klik op <span className="font-semibold">"Nieuwe Socket"</span> om er een toe te voegen.
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid gap-4">
@@ -288,7 +297,6 @@ function Dashboard() {
           </div>
         </div>
       </div>
-
       <dialog className="modal" open={showModal}>
         <div className="modal-box">
           <h3 className="font-bold text-lg mb-4">Nieuwe Socket Toevoegen</h3>
@@ -298,28 +306,27 @@ function Dashboard() {
                 <span className="label-text font-bold">Socket ID:</span>
               </label>
               <div className="mt-4">
-                <input
-                  type="text"
-                  name="socket_id"
-                  value={socketForm.socket_id}
-                  onChange={(e) => {
-                    let value = e.target.value.toUpperCase();
-                    // Remove any non-alphanumeric characters except dashes
-                    value = value.replace(/[^A-Z0-9-]/g, '');
-                    // Remove any existing dashes
-                    value = value.replace(/-/g, '');
-                    // Add dashes every 5 characters
-                    value = value.replace(/(.{5})/g, '$1-');
-                    // Remove trailing dash if exists
-                    value = value.replace(/-$/, '');
-                    // Limit to 23 characters (4 groups of 5 + 3 dashes)
-                    value = value.slice(0, 23);
-                    handleSocketChange({ target: { name: 'socket_id', value } });
-                  }}
-                  className="input input-bordered font-mono"
-                  placeholder="00000-00000-00000-00000"
-                  required
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    name="socket_id"
+                    value={socketForm.socket_id}
+                    onChange={(e) => {
+                      let value = e.target.value.toUpperCase();
+                      // Remove any non-alphabetic characters
+                      value = value.replace(/[^A-Z]/g, '');
+                      // Limit to 6 characters
+                      value = value.slice(0, 6);
+                      handleSocketChange({ target: { name: 'socket_id', value } });
+                    }}
+                    className="input input-bordered font-mono"
+                    placeholder="ABCDEF"
+                    required
+                  />
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  <span className="font-mono">De socket zal worden opgeslagen als: charger_{socketForm.socket_id}</span>
+                </div>
               </div>
             </div>
             <div className="modal-action">
