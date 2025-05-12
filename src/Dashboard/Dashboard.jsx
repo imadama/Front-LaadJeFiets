@@ -209,6 +209,13 @@ function Dashboard() {
               
               <div className="stats shadow">
                 <div className="stat">
+                  <div className="stat-title">Role</div>
+                  <div className="stat-value text-sm md:text-2xl">{user?.role || 'User'}</div>
+                </div>
+              </div>
+              
+              <div className="stats shadow">
+                <div className="stat">
                   <div className="stat-title">Account aangemaakt op</div>
                   <div className="stat-value text-sm md:text-2xl">
                     {new Date(user?.created_at).toLocaleDateString('nl-NL')}
