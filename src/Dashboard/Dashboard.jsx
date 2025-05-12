@@ -7,6 +7,8 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingSockets, setIsLoadingSockets] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [selectedSocket, setSelectedSocket] = useState(null);
   const [sockets, setSockets] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [socketForm, setSocketForm] = useState({
@@ -117,6 +119,54 @@ function Dashboard() {
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol verwijderd', 'success');
+    } catch (error) {
+      addToast(error.message);
+    }
+  };
+
+  const handleStartSession = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      });
+
+      if (!response.ok) {
+        throw new Error('Kon sessie niet starten');
+      }
+
+      addToast('Sessie succesvol gestart', 'success');
+      setShowSessionModal(false);
+    } catch (error) {
+      addToast(error.message);
+    }
+  };
+
+  const handleStopSession = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/stop`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      });
+
+      if (!response.ok) {
+        throw new Error('Kon sessie niet stoppen');
+      }
+
+      addToast('Sessie succesvol gestopt', 'success');
+      setShowSessionModal(false);
     } catch (error) {
       addToast(error.message);
     }
@@ -257,7 +307,16 @@ function Dashboard() {
                                 Aangemaakt op: {new Date(socket.created_at).toLocaleDateString('nl-NL')}
                               </p>
                             </div>
-                            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
+                            <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
+                              <button 
+                                onClick={() => {
+                                  setSelectedSocket(socket);
+                                  setShowSessionModal(true);
+                                }}
+                                className="btn btn-primary btn-sm w-32 sm:w-auto transition-colors duration-200 hover:bg-primary/90"
+                              >
+                                Sessie
+                              </button>
                               <button 
                                 onClick={() => document.getElementById(`delete-modal-${socket.id}`).showModal()}
                                 className="btn btn-error btn-sm w-32 sm:w-auto transition-colors duration-200 hover:bg-error/90"
@@ -346,6 +405,35 @@ function Dashboard() {
             </div>
           </form>
         </div>
+      </dialog>
+      <dialog className="modal" open={showSessionModal}>
+        <div className="modal-box">
+          <h3 className="font-bold text-lg mb-4">Sessie Beheer</h3>
+          <p className="py-4">Wat wilt u doen met socket <span className="font-mono">{selectedSocket?.socket_id}</span>?</p>
+          <div className="modal-action">
+            <button 
+              className="btn" 
+              onClick={() => setShowSessionModal(false)}
+            >
+              Annuleren
+            </button>
+            <button 
+              className="btn btn-error" 
+              onClick={handleStopSession}
+            >
+              Stop Sessie
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleStartSession}
+            >
+              Start Sessie
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button onClick={() => setShowSessionModal(false)}>close</button>
+        </form>
       </dialog>
     </div>
   );
