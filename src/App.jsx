@@ -1,33 +1,22 @@
 import './App.css'
-import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Register from './Auth/Register'
+import Login from './Auth/Login'
+import Dashboard from './Dashboard/Dashboard'
+import Status from './Status/Status'
 
 function App() {
-  const [message, setMessage] = useState('Loading...')
-
-  useEffect(() => {
-    async function fetchHello() {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/hello')
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const text = await response.text()
-        setMessage(text)
-      } catch (error) {
-        if (error instanceof TypeError) {
-          setMessage(
-            'NetworkError when attempting to fetch resource. Please ensure the server is running and CORS is configured correctly.'
-          )
-        } else {
-          setMessage(error.message)
-        }
-      }
-    }
-
-    fetchHello()
-  }, [])
-
-  return <div className="p-4">{message}</div>
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<div className="p-4">Welkom op de homepage</div>} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/status" element={<Status />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App
