@@ -138,7 +138,7 @@ function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('Kon sessie niet starten');
+        throw new Error('Kon sessie niet starten: ' + response.statusText);
       }
 
       addToast('Sessie succesvol gestart', 'success');
