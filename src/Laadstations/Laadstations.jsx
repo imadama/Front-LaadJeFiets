@@ -4,6 +4,29 @@ function Laadstations() {
   const [laadstations, setLaadstations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [customerNames, setCustomerNames] = useState({});
+
+  const fetchCustomerName = async (socketId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8000/api/socketbelongsto/${socketId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      return data.username;
+    } catch (error) {
+      console.error('Error fetching customer name:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const fetchLaadstations = async () => {
@@ -41,6 +64,15 @@ function Laadstations() {
                                 [];
         
         setLaadstations(laadstationsArray);
+
+        // Fetch customer names for each socket
+        const names = {};
+        for (const station of laadstationsArray) {
+          const username = await fetchCustomerName(station.socket_id);
+          names[station.socket_id] = username;
+        }
+        setCustomerNames(names);
+        
         setLoading(false);
       } catch (error) {
         console.error('Error:', error);
@@ -91,36 +123,16 @@ function Laadstations() {
         <table className="table table-zebra">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Naam</th>
-              <th>Locatie</th>
-              <th>Status</th>
+              <th>Klant</th>
+              <th>Socket ID</th>
               <th>Acties</th>
             </tr>
           </thead>
           <tbody>
             {laadstations.map((station) => (
               <tr key={station.socket_id}>
-                <th>{station.socket_id}</th>
-                <td>{station.name || `Laadstation ${station.socket_id}`}</td>
-                <td>{station.customer_name || (
-                  <button 
-                    className="btn btn-ghost btn-xs"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(`/socketbelongsto/${station.socket_id}`);
-                        const data = await response.json();
-                        // TODO: Update customer name in state
-                      } catch (error) {
-                        console.error('Fout bij ophalen klantnaam:', error);
-                      }
-                    }}
-                  >
-                    Klant ophalen
-                  </button>
-                )}</td>
-                <td>{station.location || 'Onbekend'}</td>
-                <td>{station.status || 'Onbekend'}</td>
+                <td>{customerNames[station.socket_id] || 'Geen klant'}</td>
+                <td>{station.socket_id}</td>
                 <td>
                   <button className="btn btn-primary btn-sm">Details</button>
                 </td>
@@ -133,4 +145,4 @@ function Laadstations() {
   );
 }
 
-export default Laadstations; 
+export default Laadstations;
