@@ -4,6 +4,8 @@ import Register from './Auth/Register'
 import Login from './Auth/Login'
 import Dashboard from './Dashboard/Dashboard'
 import Status from './Status/Status'
+import Laadstations from './Laadstations/Laadstations'
+import Header from './components/Header'
 
 function App() {
   return (
@@ -14,6 +16,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/status" element={<Status />} />
+        <Route path="/laadstations" element={<Laadstations />} />
       </Routes>
     </BrowserRouter>
   )

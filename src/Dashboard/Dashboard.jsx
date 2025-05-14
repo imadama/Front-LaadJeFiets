@@ -58,6 +58,7 @@ function Dashboard() {
       try {
         setIsLoadingSockets(true);
         const response = await fetch('http://127.0.0.1:8000/api/sockets', {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
