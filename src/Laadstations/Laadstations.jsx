@@ -1,10 +1,56 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Laadstations() {
+  const navigate = useNavigate();
   const [laadstations, setLaadstations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [customerNames, setCustomerNames] = useState({});
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const checkAdminStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://127.0.0.1:8000/api/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Kon gebruiker niet ophalen');
+      }
+
+      const userData = await response.json();
+      
+      const adminCheckResponse = await fetch(`http://127.0.0.1:8000/api/isuseradmin/${userData.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!adminCheckResponse.ok) {
+        throw new Error('Kon admin status niet controleren');
+      }
+
+      const adminData = await adminCheckResponse.json();
+      
+      if (adminData.role !== 'Admin') {
+        navigate('/dashboard');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      navigate('/dashboard');
+      return false;
+    }
+  };
 
   const fetchCustomerName = async (socketId) => {
     try {
@@ -29,7 +75,12 @@ function Laadstations() {
   };
 
   useEffect(() => {
-    const fetchLaadstations = async () => {
+    const initializeComponent = async () => {
+      const adminStatus = await checkAdminStatus();
+      if (!adminStatus) return;
+      
+      setIsAdmin(true);
+      
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -81,8 +132,12 @@ function Laadstations() {
       }
     };
 
-    fetchLaadstations();
-  }, []);
+    initializeComponent();
+  }, [navigate]);
+
+  if (!isAdmin) {
+    return null;
+  }
 
   if (loading) {
     return (
