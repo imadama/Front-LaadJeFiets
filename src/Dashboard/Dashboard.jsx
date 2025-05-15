@@ -77,10 +77,10 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
+    if (!position || (!customLocation && (!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city))) {
       return;
     }
-    const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
+    const address = customLocation ? 'CUSTOM_LOCATION' : `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
     onSubmit({ ...socketForm, address }, position);
   };
 
@@ -92,152 +92,189 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
 
   return (
     <dialog className="modal modal-open">
-      <div className="modal-box max-w-3xl">
-        <h3 className="font-bold text-lg mb-4">Nieuwe Socket Toevoegen</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-bold">Socket ID:</span>
-            </label>
-            <div className="mt-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  name="socket_id"
-                  value={socketForm.socket_id}
-                  onChange={(e) => {
-                    let value = e.target.value.toUpperCase();
-                    value = value.replace(/[^A-Z]/g, '');
-                    value = value.slice(0, 6);
-                    handleSocketChange({ target: { name: 'socket_id', value } });
-                  }}
-                  className="input input-bordered font-mono"
-                  placeholder="ABCDEF"
-                  required
-                />
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                <span className="font-mono">De socket zal worden opgeslagen als: charger_{socketForm.socket_id}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-control grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Straatnaam:</span>
-              </label>
-              <input
-                type="text"
-                name="street"
-                value={socketForm.street}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Straatnaam"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Huisnummer:</span>
-              </label>
-              <input
-                type="text"
-                name="number"
-                value={socketForm.number}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Huisnummer"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Postcode:</span>
-              </label>
-              <input
-                type="text"
-                name="postcode"
-                value={socketForm.postcode}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Postcode"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Plaatsnaam:</span>
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={socketForm.city}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Plaatsnaam"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-control flex flex-row items-center gap-2">
-            <input
-              type="checkbox"
-              id="customLocation"
-              className="checkbox"
-              checked={customLocation}
-              onChange={() => setCustomLocation(v => !v)}
-            />
-            <label htmlFor="customLocation" className="label-text">Gebruik aangepaste locatie (sleep de pin op de kaart)</label>
-          </div>
-
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-bold">Locatie:</span>
-            </label>
-            <div className="h-[300px] w-full rounded-lg overflow-hidden border border-base-300">
-              {showMap ? (
-                <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
-                  <div className="w-full h-full">
-                    {geocodeLoading ? (
-                      <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                        <span className="loading loading-spinner loading-lg"></span>
-                      </div>
-                    ) : (
-                      <MapComponent 
-                        key={mapKey}
-                        onPositionSelected={handlePositionSelected} 
-                        initialPosition={position}
-                        isViewOnly={!customLocation}
-                      />
-                    )}
+      <div className="modal-box max-w-4xl bg-base-100">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-xl">Nieuwe Socket Toevoegen</h3>
+          <button 
+            onClick={onClose} 
+            className="btn btn-sm btn-circle btn-ghost"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Socket ID Section */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4">
+              <h4 className="card-title text-base mb-2">Socket ID</h4>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-full">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none opacity-50 z-10">
+                      <span className="text-gray-500">charger_</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="socket_id"
+                      value={socketForm.socket_id}
+                      onChange={(e) => {
+                        let value = e.target.value.toUpperCase();
+                        value = value.replace(/[^A-Z]/g, '');
+                        value = value.slice(0, 6);
+                        handleSocketChange({ target: { name: 'socket_id', value } });
+                      }}
+                      className="input input-bordered w-full font-mono pl-[90px]"
+                      placeholder="ABCDEF"
+                      required
+                    />
                   </div>
-                </Suspense>
-              ) : (
-                <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                  <span className="loading loading-spinner loading-lg"></span>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  <span>* Voer maximaal 6 hoofdletters in voor de socket ID</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Address Section */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4">
+              <h4 className="card-title text-base mb-2 text-center">Adresgegevens</h4>
+              <div className="flex flex-col gap-4 w-full">
+                <div className="form-control w-full">
+                  <label className="label">
+                    <span className="label-text">Straatnaam</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="street"
+                    value={socketForm.street}
+                    onChange={handleSocketChange}
+                    className="input input-bordered w-full"
+                    placeholder="Straatnaam"
+                    required
+                    readOnly={customLocation}
+                  />
+                </div>
+                <div className="form-control w-full">
+                  <label className="label">
+                    <span className="label-text">Huisnummer</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="number"
+                    value={socketForm.number}
+                    onChange={handleSocketChange}
+                    className="input input-bordered w-full"
+                    placeholder="Huisnummer"
+                    required
+                    readOnly={customLocation}
+                  />
+                </div>
+                <div className="form-control w-full">
+                  <label className="label">
+                    <span className="label-text">Postcode</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="postcode"
+                    value={socketForm.postcode}
+                    onChange={handleSocketChange}
+                    className="input input-bordered w-full"
+                    placeholder="Postcode"
+                    required
+                    readOnly={customLocation}
+                  />
+                </div>
+                <div className="form-control w-full">
+                  <label className="label">
+                    <span className="label-text">Plaatsnaam</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={socketForm.city}
+                    onChange={handleSocketChange}
+                    className="input input-bordered w-full"
+                    placeholder="Plaatsnaam"
+                    required
+                    readOnly={customLocation}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Map Section */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="card-title text-base">Locatie</h4>
+                <div className="form-control">
+                  <label className="label cursor-pointer flex gap-2">
+                    <span className="label-text">Handmatige locatie</span>
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary toggle-sm"
+                      checked={customLocation}
+                      onChange={() => setCustomLocation(v => !v)}
+                    />
+                  </label>
+                </div>
+              </div>
+              
+              <div className="h-[350px] w-full rounded-lg overflow-hidden border border-base-300">
+                {showMap ? (
+                  <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
+                    <div className="w-full h-full">
+                      {geocodeLoading ? (
+                        <div className="w-full h-full bg-base-200 flex items-center justify-center">
+                          <span className="loading loading-spinner loading-lg"></span>
+                        </div>
+                      ) : (
+                        <MapComponent 
+                          key={mapKey}
+                          onPositionSelected={handlePositionSelected} 
+                          initialPosition={position}
+                          isViewOnly={!customLocation}
+                        />
+                      )}
+                    </div>
+                  </Suspense>
+                ) : (
+                  <div className="w-full h-full bg-base-200 flex items-center justify-center">
+                    <span className="loading loading-spinner loading-lg"></span>
+                  </div>
+                )}
+              </div>
+              
+              {position && (
+                <div className="mt-2 badge badge-success gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <span className="text-xs">Locatie gevonden: {position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
+                </div>
+              )}
+              
+              {!position && !geocodeLoading && (
+                <div className="text-sm text-gray-500 mt-2 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <span>{customLocation ? "Sleep de pin op de kaart" : "Vul het adres in om te zoeken"}</span>
                 </div>
               )}
             </div>
-            {position && (
-              <div className="text-sm text-gray-500 mt-2">
-                Geselecteerde locatie: {position[0].toFixed(6)}, {position[1].toFixed(6)}
-              </div>
-            )}
-            {!position && !geocodeLoading && (
-              <div className="text-sm text-gray-500 mt-2">
-                Vul het adres in of sleep de pin op de kaart
-              </div>
-            )}
           </div>
 
-          <div className="modal-action">
-            <button type="button" className="btn" onClick={onClose}>
+          <div className="modal-action mt-6 flex justify-end">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
               Annuleren
             </button>
-            <button type="submit" className="btn btn-primary" disabled={!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}>
-              Toevoegen
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              disabled={!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}
+            >
+              Socket Toevoegen
             </button>
           </div>
         </form>
