@@ -96,8 +96,12 @@ function Header() {
           <a className="btn btn-ghost text-xl">Laadjefiets</a>
           <div className="flex-none gap-2">
             <a href="/dashboard" className="btn btn-ghost">Dashboard</a>
-            <a href="/status" className="btn btn-ghost">Status</a>
-            <a href="/laadstations" className="btn btn-ghost">Laadstations</a>
+            {user?.role === 'Admin' && (
+              <>
+                <a href="/status" className="btn btn-ghost">Status</a>
+                <a href="/laadstations" className="btn btn-ghost">Laadstations</a>
+              </>
+            )}
           </div>
         </div>
         <div className="flex-none gap-4">

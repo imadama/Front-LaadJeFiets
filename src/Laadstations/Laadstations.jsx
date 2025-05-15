@@ -89,14 +89,12 @@ function Laadstations() {
           return;
         }
 
-        const response = await fetch('http://127.0.0.1:8000/api/sockets', {
+        const response = await fetch('http://127.0.0.1:8000/api/allsockets', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
+          }
         });
 
         if (!response.ok) {
