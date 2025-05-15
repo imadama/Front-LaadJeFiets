@@ -10,12 +10,6 @@ function Laadstations() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef(null);
-  const [selectedStation, setSelectedStation] = useState(null);
-  const [customerDetails, setCustomerDetails] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showAllSessions, setShowAllSessions] = useState(false);
-  const [sessionHistory, setSessionHistory] = useState(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -103,43 +97,6 @@ function Laadstations() {
     return details?.username || null;
   };
 
-  const fetchSessionInfo = async (socketId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/getsessioninfo/${socketId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Kon sessie informatie niet ophalen');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching session info:', error);
-      return null;
-    }
-  };
-
-  const formatDateTime = (dateTimeStr) => {
-    return new Date(dateTimeStr).toLocaleString('nl-NL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  const formatEnergy = (value) => {
-    return parseFloat(value).toFixed(3);
-  };
-
   useEffect(() => {
     const initializeComponent = async () => {
       const adminStatus = await checkAdminStatus();
@@ -200,20 +157,7 @@ function Laadstations() {
   }, [navigate]);
 
   const handleDetailsClick = async (station) => {
-    setSelectedStation(station);
-    setShowDetailsModal(true);
-    setIsLoadingHistory(true);
-
-    const [details, history] = await Promise.all([
-      fetchCustomerDetails(station.socket_id),
-      fetchSessionInfo(station.socket_id)
-    ]);
-
-    setCustomerDetails(details);
-    if (history) {
-      setSessionHistory(history.data);
-    }
-    setIsLoadingHistory(false);
+    navigate(`/laadstations/${station.socket_id}`);
   };
 
   if (!isAdmin) {
@@ -342,89 +286,6 @@ function Laadstations() {
               </tbody>
             </table>
           </div>
-
-          <dialog className="modal" open={showDetailsModal}>
-            <div className="modal-box max-w-4xl">
-              <h3 className="font-bold text-lg mb-4">Socket Details</h3>
-              {selectedStation && customerDetails && (
-                <div className="space-y-4">
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">Socket ID</span>
-                    </label>
-                    <div className="px-4 py-2 bg-base-200 rounded-lg text-base-content/70">
-                      {selectedStation.socket_id}
-                    </div>
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">Klant</span>
-                    </label>
-                    <div className="px-4 py-2 bg-base-200 rounded-lg text-base-content/70">
-                      {customerDetails.username || 'Geen klant'}
-                    </div>
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">Email</span>
-                    </label>
-                    <div className="px-4 py-2 bg-base-200 rounded-lg text-base-content/70">
-                      {customerDetails.email || 'Geen email'}
-                    </div>
-                  </div>
-
-                  <div className="divider">Sessie Historie</div>
-                  
-                  {isLoadingHistory ? (
-                    <div className="flex justify-center py-4">
-                      <span className="loading loading-spinner loading-md"></span>
-                    </div>
-                  ) : sessionHistory && sessionHistory.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table table-zebra w-full">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Start Tijd</th>
-                            <th>Stop Tijd</th>
-                            <th>Begin Energie (kWh)</th>
-                            <th>Eind Energie (kWh)</th>
-                            <th>Verbruikt (kWh)</th>
-                            <th>Aangemaakt</th>
-                            <th>Bijgewerkt</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sessionHistory.map((session) => (
-                            <tr key={session.id} className="hover">
-                              <td className="font-mono">{session.id}</td>
-                              <td>{formatDateTime(session.start_time)}</td>
-                              <td>{formatDateTime(session.stop_time)}</td>
-                              <td className="font-mono">{formatEnergy(session.total_energy_begin)}</td>
-                              <td className="font-mono">{formatEnergy(session.total_energy_end)}</td>
-                              <td className="font-mono font-semibold">{formatEnergy(session.final_energy)}</td>
-                              <td className="text-sm opacity-70">{formatDateTime(session.created_at)}</td>
-                              <td className="text-sm opacity-70">{formatDateTime(session.updated_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="alert alert-info">
-                      <span>Geen sessie historie beschikbaar</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="modal-action">
-                <button className="btn" onClick={() => {
-                  setShowDetailsModal(false);
-                  setSessionHistory(null);
-                }}>Close</button>
-              </div>
-            </div>
-          </dialog>
         </>
       )}
     </div>
