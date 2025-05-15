@@ -214,6 +214,11 @@ function Dashboard() {
     }));
   };
 
+  const handleSessionModalOpen = async (socket) => {
+    setSelectedSocket(socket);
+    setShowSessionModal(true);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -312,7 +317,7 @@ function Dashboard() {
                               <button 
                                 onClick={() => {
                                   setSelectedSocket(socket);
-                                  setShowSessionModal(true);
+                                  handleSessionModalOpen(socket);
                                 }}
                                 className="btn btn-primary btn-sm w-32 sm:w-auto transition-colors duration-200 hover:bg-primary/90"
                               >
@@ -408,33 +413,37 @@ function Dashboard() {
         </div>
       </dialog>
       <dialog className="modal" open={showSessionModal}>
-        <div className="modal-box">
+        <div className="modal-box max-w-4xl">
           <h3 className="font-bold text-lg mb-4">Sessie Beheer</h3>
-          <p className="py-4">Wat wilt u doen met socket <span className="font-mono">{selectedSocket?.socket_id}</span>?</p>
-          <div className="modal-action">
-            <button 
-              className="btn" 
-              onClick={() => setShowSessionModal(false)}
-            >
-              Annuleren
-            </button>
-            <button 
-              className="btn btn-error" 
-              onClick={handleStopSession}
-            >
-              Stop Sessie
-            </button>
-            <button 
-              className="btn btn-primary" 
-              onClick={handleStartSession}
-            >
-              Start Sessie
-            </button>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Socket ID:</span>
+              <span className="font-mono">{selectedSocket?.socket_id}</span>
+            </div>
+            <div className="modal-action">
+              <button 
+                className="btn" 
+                onClick={() => {
+                  setShowSessionModal(false);
+                }}
+              >
+                Sluiten
+              </button>
+              <button 
+                className="btn btn-error" 
+                onClick={handleStopSession}
+              >
+                Stop Sessie
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleStartSession}
+              >
+                Start Sessie
+              </button>
+            </div>
           </div>
         </div>
-        <form method="dialog" className="modal-backdrop">
-          <button onClick={() => setShowSessionModal(false)}>close</button>
-        </form>
       </dialog>
     </div>
   );
