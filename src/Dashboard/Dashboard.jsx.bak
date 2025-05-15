@@ -1,71 +1,83 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-// Import the MapComponent
+// Removed direct imports - we'll dynamically import these
+// import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+// import 'leaflet/dist/leaflet.css'
+// import L from 'leaflet'
+
+// Map component is loaded dynamically only when needed
 const MapComponent = lazy(() => import('./MapComponent'));
 
+// Map click handler component
+function LocationMarker({ position, setPosition }) {
+  useMapEvents({
+    click(e) {
+      setPosition([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+
+  return position ? <Marker position={position} /> : null;
+}
+
+function LocationMap({ position, setPosition }) {
+  const [isMapReady, setIsMapReady] = useState(false);
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    setIsMapReady(true);
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  if (!isMapReady) {
+    return <div className="w-full h-full bg-base-200 animate-pulse"></div>;
+  }
+
+  return (
+    <MapContainer
+      ref={mapRef}
+      center={[52.0907, 5.1214]} // Utrecht, Netherlands
+      zoom={13}
+      style={{ height: '100%', width: '100%' }}
+      whenCreated={(map) => {
+        mapRef.current = map;
+      }}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      <LocationMarker position={position} setPosition={setPosition} />
+    </MapContainer>
+  );
+}
+
 function AddSocketModal({ isOpen, onClose, onSubmit }) {
-  const [socketForm, setSocketForm] = useState({ socket_id: '', street: '', number: '', postcode: '', city: '' });
+  const [socketForm, setSocketForm] = useState({ socket_id: '' });
   const [position, setPosition] = useState(null);
   const [showMap, setShowMap] = useState(false);
-  const [mapKey, setMapKey] = useState(Date.now());
-  const [customLocation, setCustomLocation] = useState(false);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeError, setGeocodeError] = useState(null);
 
-  // Reset everything when modal is closed
+  // When modal opens, delay showing map to avoid initialization issues
   useEffect(() => {
-    if (!isOpen) {
+    let timer;
+    if (isOpen) {
+      timer = setTimeout(() => {
+        setShowMap(true);
+      }, 100);
+    } else {
       setShowMap(false);
       setPosition(null);
-      setSocketForm({ socket_id: '', street: '', number: '', postcode: '', city: '' });
-      setMapKey(Date.now());
-      setCustomLocation(false);
-      setGeocodeError(null);
-    } else {
-      const timer = setTimeout(() => {
-        setShowMap(true);
-      }, 200);
-      return () => clearTimeout(timer);
+      setSocketForm({ socket_id: '' });
     }
+    return () => {
+      clearTimeout(timer);
+    };
   }, [isOpen]);
-
-  // Geocode address when not in custom mode and address fields are filled
-  useEffect(() => {
-    const { street, number, postcode, city } = socketForm;
-    if (!customLocation && street && number && postcode && city) {
-      setGeocodeLoading(true);
-      setGeocodeError(null);
-      const address = `${street} ${number}, ${city}, ${postcode}`;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-        .then(res => res.json())
-        .then(data => {
-          console.log('Nominatim response:', data);
-          if (data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            if (!isNaN(lat) && !isNaN(lon)) {
-              setPosition([lat, lon]);
-              setGeocodeError(null);
-              // Force map reload when new coordinates are found
-              setMapKey(Date.now());
-            } else {
-              setPosition(null);
-              setGeocodeError('Ongeldige coördinaten ontvangen van de geocoding service.');
-            }
-          } else {
-            setPosition(null);
-            setGeocodeError('Adres niet gevonden op de kaart.');
-          }
-        })
-        .catch((error) => {
-          console.error('Geocoding error:', error);
-          setPosition(null);
-          setGeocodeError('Fout bij het zoeken van het adres.');
-        })
-        .finally(() => setGeocodeLoading(false));
-    }
-  }, [socketForm.street, socketForm.number, socketForm.postcode, socketForm.city, customLocation]);
 
   const handleSocketChange = (e) => {
     const { name, value } = e.target;
@@ -77,15 +89,14 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
+    if (!position) {
       return;
     }
-    const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
-    onSubmit({ ...socketForm, address }, position);
+    onSubmit(socketForm, position);
   };
 
   const handlePositionSelected = (newPosition) => {
-    if (customLocation) setPosition(newPosition);
+    setPosition(newPosition);
   };
 
   if (!isOpen) return null;
@@ -122,76 +133,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             </div>
           </div>
 
-          <div className="form-control grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Straatnaam:</span>
-              </label>
-              <input
-                type="text"
-                name="street"
-                value={socketForm.street}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Straatnaam"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Huisnummer:</span>
-              </label>
-              <input
-                type="text"
-                name="number"
-                value={socketForm.number}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Huisnummer"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Postcode:</span>
-              </label>
-              <input
-                type="text"
-                name="postcode"
-                value={socketForm.postcode}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Postcode"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-bold">Plaatsnaam:</span>
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={socketForm.city}
-                onChange={handleSocketChange}
-                className="input input-bordered"
-                placeholder="Plaatsnaam"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-control flex flex-row items-center gap-2">
-            <input
-              type="checkbox"
-              id="customLocation"
-              className="checkbox"
-              checked={customLocation}
-              onChange={() => setCustomLocation(v => !v)}
-            />
-            <label htmlFor="customLocation" className="label-text">Gebruik aangepaste locatie (sleep de pin op de kaart)</label>
-          </div>
-
           <div className="form-control">
             <label className="label">
               <span className="label-text font-bold">Locatie:</span>
@@ -199,20 +140,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             <div className="h-[300px] w-full rounded-lg overflow-hidden border border-base-300">
               {showMap ? (
                 <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
-                  <div className="w-full h-full">
-                    {geocodeLoading ? (
-                      <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                        <span className="loading loading-spinner loading-lg"></span>
-                      </div>
-                    ) : (
-                      <MapComponent 
-                        key={mapKey}
-                        onPositionSelected={handlePositionSelected} 
-                        initialPosition={position}
-                        isViewOnly={!customLocation}
-                      />
-                    )}
-                  </div>
+                  <MapComponent onPositionSelected={handlePositionSelected} initialPosition={position} />
                 </Suspense>
               ) : (
                 <div className="w-full h-full bg-base-200 flex items-center justify-center">
@@ -225,9 +153,9 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                 Geselecteerde locatie: {position[0].toFixed(6)}, {position[1].toFixed(6)}
               </div>
             )}
-            {!position && !geocodeLoading && (
-              <div className="text-sm text-gray-500 mt-2">
-                Vul het adres in of sleep de pin op de kaart
+            {!position && (
+              <div className="text-sm text-warning mt-2">
+                Klik op de kaart om een locatie te selecteren
               </div>
             )}
           </div>
@@ -236,7 +164,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             <button type="button" className="btn" onClick={onClose}>
               Annuleren
             </button>
-            <button type="submit" className="btn btn-primary" disabled={!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}>
+            <button type="submit" className="btn btn-primary" disabled={!position}>
               Toevoegen
             </button>
           </div>
@@ -315,25 +243,7 @@ function Dashboard() {
         }
 
         const data = await response.json();
-        console.log('Fetched sockets:', data); // Debug log
-        
-        // Process sockets to ensure location data is properly formatted
-        const processedSockets = (data.data || []).map(socket => {
-          // Handle location string format (latitude,longitude)
-          if (socket.location && typeof socket.location === 'string' && !socket.latitude) {
-            const [lat, lng] = socket.location.split(',').map(coord => parseFloat(coord.trim()));
-            if (!isNaN(lat) && !isNaN(lng)) {
-              return {
-                ...socket,
-                latitude: lat,
-                longitude: lng
-              };
-            }
-          }
-          return socket;
-        });
-        
-        setSockets(processedSockets);
+        setSockets(data.data || []);
       } catch (error) {
         addToast(error.message);
       } finally {
@@ -445,8 +355,8 @@ function Dashboard() {
   };
 
   const handleSocketSubmit = async (formData, position) => {
-    if (!position || !formData.address) {
-      addToast('Selecteer eerst een locatie en vul het adres in');
+    if (!position) {
+      addToast('Selecteer eerst een locatie op de kaart');
       return;
     }
     
@@ -454,13 +364,9 @@ function Dashboard() {
       const token = localStorage.getItem('token');
       const socketData = {
         socket_id: `charger_${formData.socket_id}`,
-        address: formData.address,
         latitude: position[0],
-        longitude: position[1],
-        location: `${position[0]},${position[1]}`
+        longitude: position[1]
       };
-      
-      console.log('Sending socket data:', socketData);
       
       const response = await fetch('http://127.0.0.1:8000/api/socket/new', {
         method: 'POST',
@@ -478,16 +384,7 @@ function Dashboard() {
       }
 
       const newSocket = await response.json();
-      console.log('Received new socket:', newSocket);
-      
-      const socketWithLocation = {
-        ...newSocket.data,
-        address: formData.address,
-        latitude: position[0],
-        longitude: position[1]
-      };
-      
-      setSockets(prevSockets => [...prevSockets, socketWithLocation]);
+      setSockets(prevSockets => [...prevSockets, newSocket.data]);
       handleModalClose();
       addToast('Socket succesvol toegevoegd', 'success');
     } catch (error) {
@@ -593,22 +490,11 @@ function Dashboard() {
                               <p className="text-sm text-gray-500 mt-1">
                                 Aangemaakt op: {new Date(socket.created_at).toLocaleDateString('nl-NL')}
                               </p>
-                              {(socket.latitude && socket.longitude) ? (
+                              {socket.latitude && socket.longitude && (
                                 <p className="text-sm text-gray-500 mt-1">
                                   Locatie: {socket.latitude.toFixed(6)}, {socket.longitude.toFixed(6)}
                                 </p>
-                              ) : socket.location ? (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  Locatie: {socket.location}
-                                </p>
-                              ) : (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  Locatie: Onbekend
-                                </p>
                               )}
-                              <p className="text-sm text-gray-500 mt-1">
-                                Adres: {socket.address || <span className="text-gray-400 italic">Onbekend</span>}
-                              </p>
                             </div>
                             
                             <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
@@ -667,13 +553,11 @@ function Dashboard() {
           </div>
         </div>
       </div>
-      
       <AddSocketModal
         isOpen={showModal}
         onClose={handleModalClose}
         onSubmit={handleSocketSubmit}
       />
-
       <dialog className="modal" open={showSessionModal}>
         <div className="modal-box">
           <h3 className="font-bold text-lg mb-4">Remote Actions</h3>
