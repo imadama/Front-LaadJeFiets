@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+
+const MapComponent = lazy(() => import('../Dashboard/MapComponent'));
 
 function LaadstationDetail() {
   const { socketId } = useParams();
@@ -12,6 +14,7 @@ function LaadstationDetail() {
   const [activeTab, setActiveTab] = useState('transacties');
   const [userId, setUserId] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [socketLocation, setSocketLocation] = useState(null);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -140,8 +143,9 @@ function LaadstationDetail() {
 
         const data = await response.json();
         return {
-          username: data.username,
-          email: data.email
+          username: data.user ? data.user.username : null,
+          email: data.user ? data.user.email : null,
+          address: data.address
         };
       } catch (error) {
         console.error('Error fetching customer details:', error);
@@ -171,6 +175,29 @@ function LaadstationDetail() {
       }
     };
 
+    const fetchSocketLocation = async (socketId) => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://127.0.0.1:8000/api/socketinfo/${socketId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        // Accept latitude/longitude or location string
+        if (data.latitude && data.longitude) {
+          setSocketLocation([parseFloat(data.latitude), parseFloat(data.longitude)]);
+        } else if (data.location && typeof data.location === 'string') {
+          const [lat, lng] = data.location.split(',').map(coord => parseFloat(coord.trim()));
+          if (!isNaN(lat) && !isNaN(lng)) setSocketLocation([lat, lng]);
+        }
+      } catch (error) {
+        setSocketLocation(null);
+      }
+    };
+
     const loadData = async () => {
       const isUserAdmin = await checkAdminStatus();
       if (!isUserAdmin) return;
@@ -183,13 +210,11 @@ function LaadstationDetail() {
           fetchCustomerDetails(socketId),
           fetchSessionInfo(socketId)
         ]);
-        
         setCustomerDetails(details);
-        
         if (sessionInfo) {
           setSessionHistory(sessionInfo.data);
         }
-        
+        await fetchSocketLocation(socketId);
         setLoading(false);
       } catch (error) {
         console.error('Error:', error);
@@ -310,15 +335,36 @@ function LaadstationDetail() {
                     {customerDetails.email || 'Geen email'}
                   </div>
                 </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">Adres</span>
+                  </label>
+                  <div className="px-4 py-2 bg-base-200 rounded-lg text-base-content/70">
+                    {customerDetails.address || 'Geen adres bekend'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body items-center justify-center">
+                <h2 className="card-title mb-4">Sessie Statistieken</h2>
+                <div className="stats stats-vertical shadow">
+                  <div className="stat">
+                    <div className="stat-title">Totaal aantal sessies</div>
+                    <div className="stat-value text-primary text-center">{sessionHistory ? sessionHistory.length : 0}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Tabbed content (session table, remote actions, location) */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
-          <div role="tablist" className="tabs tabs-lift">
+          <div role="tablist" className="tabs tabs-lift mb-2">
             <a 
               role="tab" 
               className={`tab ${activeTab === 'transacties' ? 'tab-active' : ''}`}
@@ -333,10 +379,15 @@ function LaadstationDetail() {
             >
               Remote Acties
             </a>
+            <a 
+              role="tab" 
+              className={`tab ${activeTab === 'locatie' ? 'tab-active' : ''}`}
+              onClick={() => setActiveTab('locatie')}
+            >
+              Locatie
+            </a>
           </div>
-          
           <div className="py-4">
-            {/* Inhoud van de Transacties tab */}
             {activeTab === 'transacties' && (
               <>
                 {sessionHistory && sessionHistory.length > 0 ? (
@@ -378,7 +429,6 @@ function LaadstationDetail() {
               </>
             )}
             
-            {/* Inhoud van de Remote Acties tab */}
             {activeTab === 'remote-acties' && (
               <div className="space-y-6">
                 <div className="alert alert-info">
@@ -407,41 +457,28 @@ function LaadstationDetail() {
                     </div>
                   </div>
                 </div>
-                
-                {sessionHistory && sessionHistory.length > 0 && (
-                  <div className="card bg-base-100 shadow-xl">
-                    <div className="card-body">
-                      <h2 className="card-title">Huidige/Laatste sessie</h2>
-                      <div className="overflow-x-auto">
-                        <table className="table table-zebra">
-                          <thead>
-                            <tr>
-                              <th>Start Tijd</th>
-                              <th>Stop Tijd</th>
-                              <th>Energie Verbruikt</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>{formatDateTime(sessionHistory[0].start_time)}</td>
-                              <td>{sessionHistory[0].stop_time ? formatDateTime(sessionHistory[0].stop_time) : 'Nog actief'}</td>
-                              <td>{formatEnergy(sessionHistory[0].final_energy)} kWh</td>
-                              <td>
-                                {!sessionHistory[0].stop_time ? (
-                                  <span className="badge badge-success">Actief</span>
-                                ) : (
-                                  <span className="badge">Beëindigd</span>
-                                )}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
+            )}
+            {activeTab === 'locatie' && (
+              socketLocation ? (
+                <div className="w-full">
+                  <h2 className="card-title mb-4">Socket Locatie</h2>
+                  <div className="h-[350px] w-full rounded-lg overflow-hidden border border-base-300">
+                    <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
+                      <MapComponent 
+                        initialPosition={socketLocation}
+                        allMarkers={[{ position: socketLocation, id: socketId, isSelected: true }]}
+                        isViewOnly={true}
+                      />
+                    </Suspense>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-2">
+                    Coördinaten: {socketLocation[0].toFixed(6)}, {socketLocation[1].toFixed(6)}
+                  </div>
+                </div>
+              ) : (
+                <div className="alert alert-warning">Geen locatiegegevens beschikbaar voor deze socket.</div>
+              )
             )}
           </div>
         </div>
