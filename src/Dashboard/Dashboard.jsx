@@ -128,7 +128,7 @@ function Dashboard() {
   const handleStartSession = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/start`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/start/${selectedSocket.socket_id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -152,7 +152,7 @@ function Dashboard() {
   const handleStopSession = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/stop`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/stop/${selectedSocket.socket_id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
