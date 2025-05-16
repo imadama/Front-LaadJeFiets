@@ -9,7 +9,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
   const [position, setPosition] = useState(null);
   const [showMap, setShowMap] = useState(false);
   const [mapKey, setMapKey] = useState(Date.now());
-  const [customLocation, setCustomLocation] = useState(false);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [geocodeError, setGeocodeError] = useState(null);
 
@@ -20,7 +19,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
       setPosition(null);
       setSocketForm({ socket_id: '', street: '', number: '', postcode: '', city: '' });
       setMapKey(Date.now());
-      setCustomLocation(false);
       setGeocodeError(null);
     } else {
       const timer = setTimeout(() => {
@@ -30,10 +28,10 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
     }
   }, [isOpen]);
 
-  // Geocode address when not in custom mode and address fields are filled
+  // Geocode address when address fields are filled
   useEffect(() => {
     const { street, number, postcode, city } = socketForm;
-    if (!customLocation && street && number && postcode && city) {
+    if (street && number && postcode && city) {
       setGeocodeLoading(true);
       setGeocodeError(null);
       const address = `${street} ${number}, ${city}, ${postcode}`;
@@ -65,7 +63,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
         })
         .finally(() => setGeocodeLoading(false));
     }
-  }, [socketForm.street, socketForm.number, socketForm.postcode, socketForm.city, customLocation]);
+  }, [socketForm.street, socketForm.number, socketForm.postcode, socketForm.city]);
 
   const handleSocketChange = (e) => {
     const { name, value } = e.target;
@@ -77,15 +75,11 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!position || (!customLocation && (!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city))) {
+    if (!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
       return;
     }
-    const address = customLocation ? 'CUSTOM_LOCATION' : `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
+    const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
     onSubmit({ ...socketForm, address }, position);
-  };
-
-  const handlePositionSelected = (newPosition) => {
-    if (customLocation) setPosition(newPosition);
   };
 
   if (!isOpen) return null;
@@ -154,7 +148,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                     className="input input-bordered w-full"
                     placeholder="Straatnaam"
                     required
-                    readOnly={customLocation}
                   />
                 </div>
                 <div className="form-control w-full">
@@ -169,7 +162,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                     className="input input-bordered w-full"
                     placeholder="Huisnummer"
                     required
-                    readOnly={customLocation}
                   />
                 </div>
                 <div className="form-control w-full">
@@ -184,7 +176,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                     className="input input-bordered w-full"
                     placeholder="Postcode"
                     required
-                    readOnly={customLocation}
                   />
                 </div>
                 <div className="form-control w-full">
@@ -199,7 +190,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                     className="input input-bordered w-full"
                     placeholder="Plaatsnaam"
                     required
-                    readOnly={customLocation}
                   />
                 </div>
               </div>
@@ -209,20 +199,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
           {/* Map Section */}
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="card-title text-base">Locatie</h4>
-                <div className="form-control">
-                  <label className="label cursor-pointer flex gap-2">
-                    <span className="label-text">Handmatige locatie</span>
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-primary toggle-sm"
-                      checked={customLocation}
-                      onChange={() => setCustomLocation(v => !v)}
-                    />
-                  </label>
-                </div>
-              </div>
+              <h4 className="card-title text-base mb-2">Locatie</h4>
               
               <div className="h-[350px] w-full rounded-lg overflow-hidden border border-base-300">
                 {showMap ? (
@@ -235,9 +212,8 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
                       ) : (
                         <MapComponent 
                           key={mapKey}
-                          onPositionSelected={handlePositionSelected} 
                           initialPosition={position}
-                          isViewOnly={!customLocation}
+                          isViewOnly={true}
                         />
                       )}
                     </div>
@@ -259,7 +235,13 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
               {!position && !geocodeLoading && (
                 <div className="text-sm text-gray-500 mt-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  <span>{customLocation ? "Sleep de pin op de kaart" : "Vul het adres in om te zoeken"}</span>
+                  <span>Vul het adres in om de locatie te vinden</span>
+                </div>
+              )}
+              
+              {geocodeError && (
+                <div className="mt-2 text-error text-sm">
+                  {geocodeError}
                 </div>
               )}
             </div>
