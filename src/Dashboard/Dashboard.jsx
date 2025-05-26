@@ -278,6 +278,12 @@ function Dashboard() {
   const [selectedSocket, setSelectedSocket] = useState(null);
   const [sockets, setSockets] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const [adminStats, setAdminStats] = useState({
+    totalKwh: 0,
+    totalUsers: 0,
+    activeSockets: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -310,11 +316,39 @@ function Dashboard() {
 
         const data = await response.json();
         setUser(data);
+
+        // Als de gebruiker admin is, haal dan de statistieken op
+        if (data.role === 'Admin') {
+          await fetchAdminStats();
+        }
       } catch (error) {
         addToast(error.message);
         navigate('/login');
       } finally {
         setIsLoading(false);
+      }
+    };
+
+    const fetchAdminStats = async () => {
+      try {
+        setIsLoadingStats(true);
+        const response = await fetch('http://127.0.0.1:8000/api/admin/stats', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Kon statistieken niet ophalen');
+        }
+
+        const data = await response.json();
+        setAdminStats(data);
+      } catch (error) {
+        addToast(error.message);
+      } finally {
+        setIsLoadingStats(false);
       }
     };
 
@@ -578,6 +612,61 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {user?.role === 'Admin' && (
+                <>
+                  <div className="divider"></div>
+                  <h3 className="text-xl font-bold">Systeem Statistieken</h3>
+                  {isLoadingStats ? (
+                    <div className="flex justify-center">
+                      <span className="loading loading-spinner loading-lg"></span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="stats shadow">
+                        <div className="stat">
+                          <div className="stat-figure text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-8 h-8 stroke-current">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                          </div>
+                          <div className="stat-title">Totaal Geladen</div>
+                          <div className="stat-value text-primary">
+                            {Number(adminStats.totalKwh || 0).toFixed(2)}
+                          </div>
+                          <div className="stat-desc">kWh</div>
+                        </div>
+                      </div>
+                      
+                      <div className="stats shadow">
+                        <div className="stat">
+                          <div className="stat-figure text-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-8 h-8 stroke-current">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                            </svg>
+                          </div>
+                          <div className="stat-title">Aantal Gebruikers</div>
+                          <div className="stat-value text-secondary">{adminStats.totalUsers}</div>
+                          <div className="stat-desc">Geregistreerde gebruikers</div>
+                        </div>
+                      </div>
+                      
+                      <div className="stats shadow">
+                        <div className="stat">
+                          <div className="stat-figure text-accent">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-8 h-8 stroke-current">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                          </div>
+                          <div className="stat-title">Actieve Sockets</div>
+                          <div className="stat-value text-accent">{adminStats.activeSockets}</div>
+                          <div className="stat-desc">Momenteel actief</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div className="divider"></div>
 
