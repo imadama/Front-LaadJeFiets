@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../utils/api';
 
 function SettingsModal({ isOpen, onClose, user, theme, onThemeChange }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -8,20 +9,7 @@ function SettingsModal({ isOpen, onClose, user, theme, onThemeChange }) {
   const handleDeleteAllSockets = async () => {
     try {
       setError(null);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/sockets/delete-all', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Could not delete sockets');
-      }
-
+      await api.sockets.deleteAll();
       setShowDeleteConfirm(false);
       onClose();
     } catch (error) {
@@ -33,21 +21,7 @@ function SettingsModal({ isOpen, onClose, user, theme, onThemeChange }) {
   const handleDeleteAccount = async () => {
     try {
       setError(null);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/user/delete', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Could not delete account');
-      }
-
-      localStorage.removeItem('token');
+      await api.user.delete();
       window.location.href = '/login';
     } catch (error) {
       setError(error.message);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import api from '../utils/api'
 
 function Login() {
   const navigate = useNavigate();
@@ -32,28 +33,12 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-        }),
+      await api.user.login({
+        username: formData.username,
+        password: formData.password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Er is iets misgegaan bij het inloggen');
-      }
-
-      // Sla de token op in localStorage
-      localStorage.setItem('token', data.token);
       
-      // Navigeer naar de dashboard pagina na succesvol inloggen
+      // Navigate to the dashboard page after successful login
       navigate('/dashboard');
     } catch (error) {
       setError(error.message);

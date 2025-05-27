@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import api from '../utils/api';
 
 function Status() {
   const [services, setServices] = useState({
@@ -14,18 +15,8 @@ function Status() {
 
   const checkStatus = async (endpoint) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/health/${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        return data.status === 'online' ? 'online' : 'offline';
-      }
-      return 'offline';
+      const data = await api.status.check(endpoint);
+      return data.status === 'online' ? 'online' : 'offline';
     } catch (error) {
       return 'offline';
     }
@@ -77,7 +68,7 @@ function Status() {
 
   useEffect(() => {
     checkAllServices();
-    const interval = setInterval(checkAllServices, 30000);
+    const interval = setInterval(checkAllServices, 60000);
     return () => clearInterval(interval);
   }, []);
 
