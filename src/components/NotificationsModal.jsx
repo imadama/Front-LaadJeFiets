@@ -1,23 +1,13 @@
 import React from 'react';
+import api from '../utils/api';
 
+/* Commented out NotificationsModal component
 function NotificationsModal({ isOpen, onClose, notifications, userId, onClear }) {
   if (!isOpen) return null;
 
   const handleClearNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${userId}/notifications/clear`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Could not clear notifications');
-      }
-
+      await api.notifications.clear(userId);
       onClear();
       onClose();
     } catch (error) {
@@ -63,6 +53,14 @@ function NotificationsModal({ isOpen, onClose, notifications, userId, onClear })
       </form>
     </dialog>
   );
+}
+
+export default NotificationsModal;
+*/
+
+// Placeholder component to maintain imports
+function NotificationsModal() {
+  return null;
 }
 
 export default NotificationsModal;

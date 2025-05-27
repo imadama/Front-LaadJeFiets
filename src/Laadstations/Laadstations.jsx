@@ -88,7 +88,6 @@ function Laadstations() {
       }
 
       const data = await response.json();
-      // Handle the new response format
       return {
         username: data.user ? data.user.username : null,
         email: data.user ? data.user.email : null,
@@ -97,6 +96,42 @@ function Laadstations() {
     } catch (error) {
       console.error('Error fetching customer details:', error);
       return null;
+    }
+  };
+
+  const fetchAllCustomerDetails = async (socketIds) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://127.0.0.1:8000/api/socketbelongsto/bulk', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ socket_ids: socketIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch customer details');
+      }
+
+      const responseData = await response.json();
+      if (responseData.status === 'success' && Array.isArray(responseData.data)) {
+        // Convert array to object with socket_id as key
+        return responseData.data.reduce((acc, item) => {
+          acc[item.socket_id] = {
+            username: item.user?.username || null,
+            email: item.user?.email || null,
+            address: item.address || null
+          };
+          return acc;
+        }, {});
+      }
+      return {};
+    } catch (error) {
+      console.error('Error fetching all customer details:', error);
+      return {};
     }
   };
 
@@ -164,19 +199,23 @@ function Laadstations() {
         const processedStations = processLocationData(laadstationsArray);
         setLaadstations(processedStations);
 
-        // Fetch customer names for each socket
+        // Fetch all customer details at once
+        const socketIds = processedStations.map(station => station.socket_id);
+        const customerDetails = await fetchAllCustomerDetails(socketIds);
+        
+        // Create a mapping of socket IDs to customer names and addresses
         const names = {};
-        for (const station of processedStations) {
-          const details = await fetchCustomerDetails(station.socket_id);
+        processedStations.forEach(station => {
+          const details = customerDetails[station.socket_id];
           names[station.socket_id] = details?.username || null;
           
           // Add the address to the station object if available
           if (details?.address) {
             station.address = details.address;
           }
-        }
-        setCustomerNames(names);
+        });
         
+        setCustomerNames(names);
         setLoading(false);
       } catch (error) {
         console.error('Error:', error);

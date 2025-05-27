@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import api from '../utils/api'
 
 function Register() {
   const navigate = useNavigate();
@@ -32,31 +33,13 @@ function Register() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-        }),
+      await api.user.register({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        throw new Error('Ongeldige server response');
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Er is iets misgegaan bij de registratie');
-      }
-
-      // Registratie succesvol, navigeer naar login pagina
+      // Navigate to login page after successful registration
       navigate('/login');
     } catch (error) {
       setError(error.message);
