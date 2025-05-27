@@ -6,64 +6,13 @@ const MapComponent = lazy(() => import('./MapComponent'));
 
 function AddSocketModal({ isOpen, onClose, onSubmit }) {
   const [socketForm, setSocketForm] = useState({ socket_id: '', street: '', number: '', postcode: '', city: '' });
-  const [position, setPosition] = useState(null);
-  const [showMap, setShowMap] = useState(false);
-  const [mapKey, setMapKey] = useState(Date.now());
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeError, setGeocodeError] = useState(null);
 
-  // Reset everything when modal is closed
+  // Reset form when modal is closed
   useEffect(() => {
     if (!isOpen) {
-      setShowMap(false);
-      setPosition(null);
       setSocketForm({ socket_id: '', street: '', number: '', postcode: '', city: '' });
-      setMapKey(Date.now());
-      setGeocodeError(null);
-    } else {
-      const timer = setTimeout(() => {
-        setShowMap(true);
-      }, 200);
-      return () => clearTimeout(timer);
     }
   }, [isOpen]);
-
-  // Geocode address when address fields are filled
-  useEffect(() => {
-    const { street, number, postcode, city } = socketForm;
-    if (street && number && postcode && city) {
-      setGeocodeLoading(true);
-      setGeocodeError(null);
-      const address = `${street} ${number}, ${city}, ${postcode}`;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-        .then(res => res.json())
-        .then(data => {
-          console.log('Nominatim response:', data);
-          if (data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            if (!isNaN(lat) && !isNaN(lon)) {
-              setPosition([lat, lon]);
-              setGeocodeError(null);
-              // Force map reload when new coordinates are found
-              setMapKey(Date.now());
-            } else {
-              setPosition(null);
-              setGeocodeError('Ongeldige coördinaten ontvangen van de geocoding service.');
-            }
-          } else {
-            setPosition(null);
-            setGeocodeError('Adres niet gevonden op de kaart.');
-          }
-        })
-        .catch((error) => {
-          console.error('Geocoding error:', error);
-          setPosition(null);
-          setGeocodeError('Fout bij het zoeken van het adres.');
-        })
-        .finally(() => setGeocodeLoading(false));
-    }
-  }, [socketForm.street, socketForm.number, socketForm.postcode, socketForm.city]);
 
   const handleSocketChange = (e) => {
     const { name, value } = e.target;
@@ -75,11 +24,11 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
+    if (!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
       return;
     }
     const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
-    onSubmit({ ...socketForm, address }, position);
+    onSubmit({ ...socketForm, address });
   };
 
   if (!isOpen) return null;
@@ -196,57 +145,6 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             </div>
           </div>
 
-          {/* Map Section */}
-          <div className="card bg-base-200 shadow-sm">
-            <div className="card-body p-4">
-              <h4 className="card-title text-base mb-2">Locatie</h4>
-              
-              <div className="h-[350px] w-full rounded-lg overflow-hidden border border-base-300">
-                {showMap ? (
-                  <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
-                    <div className="w-full h-full">
-                      {geocodeLoading ? (
-                        <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                          <span className="loading loading-spinner loading-lg"></span>
-                        </div>
-                      ) : (
-                        <MapComponent 
-                          key={mapKey}
-                          initialPosition={position}
-                          isViewOnly={true}
-                        />
-                      )}
-                    </div>
-                  </Suspense>
-                ) : (
-                  <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                    <span className="loading loading-spinner loading-lg"></span>
-                  </div>
-                )}
-              </div>
-              
-              {position && (
-                <div className="mt-2 badge badge-success gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  <span className="text-xs">Locatie gevonden: {position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
-                </div>
-              )}
-              
-              {!position && !geocodeLoading && (
-                <div className="text-sm text-gray-500 mt-2 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  <span>Vul het adres in om de locatie te vinden</span>
-                </div>
-              )}
-              
-              {geocodeError && (
-                <div className="mt-2 text-error text-sm">
-                  {geocodeError}
-                </div>
-              )}
-            </div>
-          </div>
-
           <div className="modal-action mt-6 flex justify-end">
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Annuleren
@@ -254,7 +152,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             <button 
               type="submit" 
               className="btn btn-primary" 
-              disabled={!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}
+              disabled={!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}
             >
               Socket Toevoegen
             </button>
@@ -497,20 +395,12 @@ function Dashboard() {
     setShowModal(false);
   };
 
-  const handleSocketSubmit = async (formData, position) => {
-    if (!position || !formData.address) {
-      addToast('Selecteer eerst een locatie en vul het adres in');
-      return;
-    }
-    
+  const handleSocketSubmit = async (formData) => {
     try {
       const token = localStorage.getItem('token');
       const socketData = {
-        socket_id: `charger_${formData.socket_id}`,
-        address: formData.address,
-        latitude: position[0],
-        longitude: position[1],
-        location: `${position[0]},${position[1]}`
+        socket_id: formData.socket_id,
+        address: formData.address
       };
       
       console.log('Sending socket data:', socketData);
@@ -533,14 +423,12 @@ function Dashboard() {
       const newSocket = await response.json();
       console.log('Received new socket:', newSocket);
       
-      const socketWithLocation = {
+      const socketWithAddress = {
         ...newSocket.data,
-        address: formData.address,
-        latitude: position[0],
-        longitude: position[1]
+        address: formData.address
       };
       
-      setSockets(prevSockets => [...prevSockets, socketWithLocation]);
+      setSockets(prevSockets => [...prevSockets, socketWithAddress]);
       handleModalClose();
       addToast('Socket succesvol toegevoegd', 'success');
     } catch (error) {
