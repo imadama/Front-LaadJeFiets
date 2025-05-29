@@ -7,6 +7,7 @@ import Status from './Status/Status'
 import Laadstations from './Laadstations/Laadstations'
 import LaadstationDetail from './Laadstations/LaadstationDetail'
 import Header from './components/Header'
+import Instellingen from './pages/Instellingen'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/status" element={<Status />} />
         <Route path="/laadstations" element={<Laadstations />} />
         <Route path="/laadstations/:socketId" element={<LaadstationDetail />} />
+        <Route path="/instellingen" element={<Instellingen />} />
       </Routes>
     </BrowserRouter>
   )
