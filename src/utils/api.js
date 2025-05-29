@@ -102,6 +102,29 @@ const api = {
     },
   },
 
+  // Users management endpoints
+  users: {
+    async getAll() {
+      const cached = useCacheStore.getState().getCache('users');
+      if (cached) return cached;
+
+      const data = await api.request('/users');
+      useCacheStore.getState().setCache('users', data, 30000); // Cache for 30 seconds
+      return data;
+    },
+    async getAllWithDetails() {
+      const cached = useCacheStore.getState().getCache('users_with_details');
+      if (cached) return cached;
+
+      const data = await api.request('/users', {
+        method: 'POST',
+        body: JSON.stringify({ include_details: true })
+      });
+      useCacheStore.getState().setCache('users_with_details', data, 30000); // Cache for 30 seconds
+      return data;
+    },
+  },
+
   // Socket related endpoints
   sockets: {
     async getAll() {

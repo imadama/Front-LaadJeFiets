@@ -86,6 +86,7 @@ function Header() {
               <>
                 <a href="/status" className="btn btn-ghost">Status</a>
                 <a href="/laadstations" className="btn btn-ghost">Laadstations</a>
+                <a href="/instellingen" className="btn btn-ghost">Instellingen</a>
               </>
             )}
           </div>
