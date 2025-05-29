@@ -1,18 +1,91 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // Import the MapComponent
 const MapComponent = lazy(() => import('./MapComponent'));
 
-function AddSocketModal({ isOpen, onClose, onSubmit }) {
-  const [socketForm, setSocketForm] = useState({ socket_id: '', street: '', number: '', postcode: '', city: '' });
+function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
+  const [socketForm, setSocketForm] = useState({ socket_id: '', location_id: '' });
+  const [locations, setLocations] = useState([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Fetch locations for the logged-in user
+  const fetchLocations = async (selectId = null, newLocation = null) => {
+    if (!isOpen || !userId) return;
+    try {
+      setIsLoadingLocations(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8000/api/locations/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Kon locaties niet ophalen');
+      }
+      const data = await response.json();
+      let locationsArr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+      // If newLocation is provided and not in the list, add it
+      if (newLocation && !locationsArr.some(loc => loc.id === newLocation.id)) {
+        locationsArr = [...locationsArr, newLocation];
+      }
+      setLocations(locationsArr);
+      // Optionally select the new location
+      if (selectId) {
+        setSocketForm(prev => ({ ...prev, location_id: selectId }));
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+    } finally {
+      setIsLoadingLocations(false);
+    }
+  };
+
+  // Expose a refreshLocations function globally for AddLocationModal to call after creation
+  useEffect(() => {
+    window.refreshLocations = (newLocation) => {
+      if (!newLocation) return;
+      fetchLocations(newLocation.id, newLocation);
+    };
+    return () => { delete window.refreshLocations; };
+  }, [isOpen, userId]);
 
   // Reset form when modal is closed
   useEffect(() => {
     if (!isOpen) {
-      setSocketForm({ socket_id: '', street: '', number: '', postcode: '', city: '' });
+      setSocketForm({ socket_id: '', location_id: '' });
+      setDropdownOpen(false);
+      setLocations([]);
     }
   }, [isOpen]);
+
+  // Only fetch locations when dropdown is opened
+  const handleDropdownOpen = () => {
+    setDropdownOpen(true);
+    if (!isLoadingLocations) {
+      fetchLocations();
+    }
+  };
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const handleSocketChange = (e) => {
     const { name, value } = e.target;
@@ -22,14 +95,20 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
     }));
   };
 
+  const handleDropdownSelect = (location) => {
+    setSocketForm(prev => ({ ...prev, location_id: location.id }));
+    setDropdownOpen(false);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
+    if (!socketForm.socket_id || !socketForm.location_id) {
       return;
     }
-    const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
-    onSubmit({ ...socketForm, address });
+    onSubmit(socketForm);
   };
+
+  const selectedLocation = locations.find(l => l.id === Number(socketForm.location_id));
 
   if (!isOpen) return null;
 
@@ -80,66 +159,71 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             </div>
           </div>
 
-          {/* Address Section */}
+          {/* Location Section */}
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
-              <h4 className="card-title text-base mb-2 text-center">Adresgegevens</h4>
+              <h4 className="card-title text-base mb-2 text-center">Locatie</h4>
               <div className="flex flex-col gap-4 w-full">
-                <div className="form-control w-full">
+                <div className="form-control w-full" ref={dropdownRef}>
                   <label className="label">
-                    <span className="label-text">Straatnaam</span>
+                    <span className="label-text">Selecteer een locatie</span>
                   </label>
-                  <input
-                    type="text"
-                    name="street"
-                    value={socketForm.street}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Straatnaam"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Huisnummer</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="number"
-                    value={socketForm.number}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Huisnummer"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Postcode</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="postcode"
-                    value={socketForm.postcode}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Postcode"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Plaatsnaam</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={socketForm.city}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Plaatsnaam"
-                    required
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="input input-bordered w-full flex justify-between items-center text-left"
+                      onClick={handleDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-expanded={dropdownOpen}
+                    >
+                      {selectedLocation ? (
+                        <span>
+                          {selectedLocation.name}
+                          <span className="block text-xs text-gray-400 font-normal">€ {Number(selectedLocation.tariff_per_kwh).toFixed(2)} per kWh</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Selecteer een locatie</span>
+                      )}
+                      <svg className="w-4 h-4 ml-2 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {dropdownOpen && (
+                      <ul
+                        tabIndex={-1}
+                        className="absolute z-20 mt-1 w-full bg-base-100 border border-base-300 rounded shadow-lg max-h-60 overflow-auto"
+                        role="listbox"
+                      >
+                        {isLoadingLocations ? (
+                          <li className="px-4 py-2 flex items-center justify-center">
+                            <span className="loading loading-spinner loading-md"></span>
+                          </li>
+                        ) : locations.length === 0 ? (
+                          <li className="px-4 py-2 text-gray-400">Geen locaties beschikbaar</li>
+                        ) : (
+                          locations.map((location) => (
+                            <li
+                              key={location.id}
+                              role="option"
+                              aria-selected={socketForm.location_id === location.id}
+                              className={`px-4 py-2 cursor-pointer hover:bg-base-200 ${socketForm.location_id === location.id ? 'bg-base-200' : ''}`}
+                              onClick={() => handleDropdownSelect(location)}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{location.name}</span>
+                                <span className="text-xs text-gray-400">€ {Number(location.tariff_per_kwh).toFixed(2)} per kWh</span>
+                              </div>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-link mt-2 text-primary"
+                    onClick={onAddLocation}
+                  >
+                    + Nieuwe Locatie
+                  </button>
                 </div>
               </div>
             </div>
@@ -152,9 +236,131 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             <button 
               type="submit" 
               className="btn btn-primary" 
-              disabled={!socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}
+              disabled={!socketForm.socket_id || !socketForm.location_id}
             >
               Socket Toevoegen
+            </button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" className="modal-backdrop">
+        <button onClick={onClose}>close</button>
+      </form>
+    </dialog>
+  );
+}
+
+function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
+  const [form, setForm] = useState({ name: '', address: '', tariff_per_kwh: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setForm({ name: '', address: '', tariff_per_kwh: '' });
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const payload = {
+        user_id: userId,
+        name: form.name,
+        address: form.address,
+        tariff_per_kwh: form.tariff_per_kwh
+      };
+      const response = await fetch('http://127.0.0.1:8000/api/locations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Kon locatie niet toevoegen');
+      }
+      const newLocation = await response.json();
+      onSubmit(newLocation.data);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-lg bg-base-100">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-xl">Nieuwe Locatie Toevoegen</h3>
+          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Naam</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Naam van de locatie"
+              required
+            />
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Adres</span>
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Adres van de locatie"
+              required
+            />
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Tarief per kWh</span>
+            </label>
+            <input
+              type="number"
+              name="tariff_per_kwh"
+              value={form.tariff_per_kwh}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Bijv. 0.25"
+              step="0.01"
+              min="0"
+              required
+            />
+          </div>
+          {error && <div className="alert alert-error"><span>{error}</span></div>}
+          <div className="modal-action flex justify-end gap-2">
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isLoading}>Annuleren</button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? <span className="loading loading-spinner loading-sm"></span> : 'Locatie Toevoegen'}
             </button>
           </div>
         </form>
@@ -182,6 +388,7 @@ function Dashboard() {
     activeSockets: 0
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -400,7 +607,7 @@ function Dashboard() {
       const token = localStorage.getItem('token');
       const socketData = {
         socket_id: formData.socket_id,
-        address: formData.address
+        location_id: formData.location_id
       };
       
       console.log('Sending socket data:', socketData);
@@ -423,12 +630,7 @@ function Dashboard() {
       const newSocket = await response.json();
       console.log('Received new socket:', newSocket);
       
-      const socketWithAddress = {
-        ...newSocket.data,
-        address: formData.address
-      };
-      
-      setSockets(prevSockets => [...prevSockets, socketWithAddress]);
+      setSockets(prevSockets => [...prevSockets, newSocket.data]);
       handleModalClose();
       addToast('Socket succesvol toegevoegd', 'success');
     } catch (error) {
@@ -439,6 +641,14 @@ function Dashboard() {
   const handleSessionModalOpen = (socket) => {
     setSelectedSocket(socket);
     setShowSessionModal(true);
+  };
+
+  // Add location to locations list in AddSocketModal after creation
+  const handleLocationCreated = (newLocation) => {
+    if (!newLocation) return;
+    if (typeof window !== 'undefined' && window.refreshLocations) {
+      window.refreshLocations(newLocation);
+    }
   };
 
   if (isLoading) {
@@ -668,6 +878,15 @@ function Dashboard() {
         isOpen={showModal}
         onClose={handleModalClose}
         onSubmit={handleSocketSubmit}
+        onAddLocation={() => setShowLocationModal(true)}
+        userId={user?.id}
+      />
+
+      <AddLocationModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSubmit={handleLocationCreated}
+        userId={user?.id}
       />
 
       <dialog className="modal" open={showSessionModal}>
