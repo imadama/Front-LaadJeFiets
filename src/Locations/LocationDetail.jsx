@@ -9,6 +9,8 @@ function LocationDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [availableSockets, setAvailableSockets] = useState([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -56,6 +58,21 @@ function LocationDetail() {
 
         const socketsData = await socketsResponse.json();
         setSockets(Array.isArray(socketsData) ? socketsData : (Array.isArray(socketsData.data) ? socketsData.data : []));
+
+        // Haal beschikbare sockets op (zonder locatie)
+        const availableSocketsResponse = await fetch('http://127.0.0.1:8000/api/sockets/available', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!availableSocketsResponse.ok) {
+          throw new Error('Kon beschikbare sockets niet ophalen');
+        }
+
+        const availableSocketsData = await availableSocketsResponse.json();
+        setAvailableSockets(Array.isArray(availableSocketsData) ? availableSocketsData : (Array.isArray(availableSocketsData.data) ? availableSocketsData.data : []));
       } catch (error) {
         setError(error.message);
         addToast(error.message);
@@ -84,6 +101,31 @@ function LocationDetail() {
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol verwijderd van deze locatie', 'success');
+    } catch (error) {
+      addToast(error.message);
+    }
+  };
+
+  const handleAssignSocket = async (socketId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}/sockets/${socketId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Kon socket niet toewijzen aan deze locatie');
+      }
+
+      const socketData = await response.json();
+      setSockets(prevSockets => [...prevSockets, socketData.data]);
+      setAvailableSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
+      addToast('Socket succesvol toegewezen aan deze locatie', 'success');
     } catch (error) {
       addToast(error.message);
     }
@@ -151,7 +193,15 @@ function LocationDetail() {
 
               {/* Sockets Lijst */}
               <div className="divider"></div>
-              <h3 className="text-xl font-bold">Sockets op deze locatie</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Sockets op deze locatie</h3>
+                <button 
+                  onClick={() => setShowAssignModal(true)}
+                  className="btn btn-primary btn-sm"
+                >
+                  Socket Toewijzen
+                </button>
+              </div>
               
               {sockets.length === 0 ? (
                 <div className="alert alert-warning">
@@ -226,6 +276,50 @@ function LocationDetail() {
           </div>
         </div>
       </div>
+
+      {/* Modal voor socket toewijzen */}
+      <dialog className="modal" open={showAssignModal}>
+        <div className="modal-box">
+          <h3 className="font-bold text-lg mb-4">Socket Toewijzen</h3>
+          {availableSockets.length === 0 ? (
+            <p>Er zijn geen beschikbare sockets om toe te wijzen.</p>
+          ) : (
+            <div className="space-y-4">
+              {availableSockets.map(socket => (
+                <div key={socket.id} className="card bg-base-100 shadow">
+                  <div className="card-body">
+                    <h4 className="card-title text-base">
+                      Socket ID: <span className="font-mono">{socket.socket_id}</span>
+                    </h4>
+                    <p className="text-sm text-gray-500">
+                      Aangemaakt op: {new Date(socket.created_at).toLocaleDateString('nl-NL')}
+                    </p>
+                    <div className="card-actions justify-end">
+                      <button 
+                        onClick={() => handleAssignSocket(socket.id)}
+                        className="btn btn-primary btn-sm"
+                      >
+                        Toewijzen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="modal-action">
+            <button 
+              className="btn" 
+              onClick={() => setShowAssignModal(false)}
+            >
+              Sluiten
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button onClick={() => setShowAssignModal(false)}>close</button>
+        </form>
+      </dialog>
     </div>
   );
 }
