@@ -291,7 +291,7 @@ function Locations() {
                             </p>
                           </div>
                           
-                          <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
+                          <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <button 
                               onClick={() => document.getElementById(`delete-modal-${location.id}`).showModal()}
                               className="btn btn-error btn-sm w-32 sm:w-auto transition-colors duration-200 hover:bg-error/90"
