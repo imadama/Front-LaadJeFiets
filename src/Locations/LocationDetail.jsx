@@ -70,7 +70,7 @@ function LocationDetail() {
   const handleSocketDelete = async (socketId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/socket/delete/${socketId}`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}/sockets/${socketId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -79,11 +79,11 @@ function LocationDetail() {
       });
 
       if (!response.ok) {
-        throw new Error('Kon socket niet verwijderen');
+        throw new Error('Kon socket niet verwijderen van deze locatie');
       }
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
-      addToast('Socket succesvol verwijderd', 'success');
+      addToast('Socket succesvol verwijderd van deze locatie', 'success');
     } catch (error) {
       addToast(error.message);
     }
