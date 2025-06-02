@@ -1,5 +1,6 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const MapComponent = lazy(() => import('../Dashboard/MapComponent'));
 
@@ -26,20 +27,9 @@ function LaadstationDetail() {
 
   const handleStartSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${userId}/socket/start/${socketId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: socketId })
+      await api.request(`/${userId}/socket/start/${socketId}`, {
+        method: 'POST'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon sessie niet starten: ' + response.statusText);
-      }
 
       addToast('Sessie succesvol gestart', 'success');
       
@@ -55,20 +45,9 @@ function LaadstationDetail() {
 
   const handleStopSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${userId}/socket/stop/${socketId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: socketId })
+      await api.request(`/${userId}/socket/stop/${socketId}`, {
+        method: 'POST'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon sessie niet stoppen');
-      }
 
       addToast('Sessie succesvol gestopt', 'success');
       
@@ -85,34 +64,12 @@ function LaadstationDetail() {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://127.0.0.1:8000/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon gebruiker niet ophalen');
-        }
-
-        const userData = await response.json();
+        const userData = await api.user.get();
         setUserId(userData.id);
         
-        const adminCheckResponse = await fetch(`http://127.0.0.1:8000/api/isuseradmin/${userData.id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+        const adminData = await api.request(`/isuseradmin/${userData.id}`, {
+          method: 'POST'
         });
-
-        if (!adminCheckResponse.ok) {
-          throw new Error('Kon admin status niet controleren');
-        }
-
-        const adminData = await adminCheckResponse.json();
         
         if (adminData.role !== 'Admin') {
           navigate('/dashboard');
@@ -129,19 +86,7 @@ function LaadstationDetail() {
 
     const fetchCustomerDetails = async (socketId) => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://127.0.0.1:8000/api/socketbelongsto/${socketId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          return null;
-        }
-
-        const data = await response.json();
+        const data = await api.request(`/socketbelongsto/${socketId}`);
         return {
           username: data.user ? data.user.username : null,
           email: data.user ? data.user.email : null,
@@ -155,19 +100,7 @@ function LaadstationDetail() {
 
     const fetchSessionInfo = async (socketId) => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://127.0.0.1:8000/api/getsessioninfo/${socketId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon sessie informatie niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.request(`/getsessioninfo/${socketId}`);
         return data;
       } catch (error) {
         console.error('Error fetching session info:', error);
@@ -177,15 +110,7 @@ function LaadstationDetail() {
 
     const fetchSocketLocation = async (socketId) => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://127.0.0.1:8000/api/socketinfo/${socketId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (!response.ok) return;
-        const data = await response.json();
+        const data = await api.request(`/socketinfo/${socketId}`);
         // Accept latitude/longitude or location string
         if (data.latitude && data.longitude) {
           setSocketLocation([parseFloat(data.latitude), parseFloat(data.longitude)]);

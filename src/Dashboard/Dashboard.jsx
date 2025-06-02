@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../utils/api'
 
 // Import the MapComponent
 const MapComponent = lazy(() => import('./MapComponent'));
@@ -16,17 +17,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
     if (!isOpen || !userId) return;
     try {
       setIsLoadingLocations(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/locations/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Kon locaties niet ophalen');
-      }
-      const data = await response.json();
+      const data = await api.request(`/locations/user/${userId}`);
       let locationsArr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
       // If newLocation is provided and not in the list, add it
       if (newLocation && !locationsArr.some(loc => loc.id === newLocation.id)) {
@@ -272,29 +263,17 @@ function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
       const payload = {
         user_id: userId,
         name: form.name,
         address: form.address,
         tariff_per_kwh: form.tariff_per_kwh
       };
-      const response = await fetch('http://127.0.0.1:8000/api/locations', {
+      const newLocation = await api.request('/locations', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
         body: JSON.stringify(payload)
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Kon locatie niet toevoegen');
-      }
-      const newLocation = await response.json();
-      onSubmit(newLocation.data);
-      onClose();
+      onSubmit(newLocation);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -408,24 +387,8 @@ function Dashboard() {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon gebruikersgegevens niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.user.get();
         setUser(data);
-
-        // Als de gebruiker admin is, haal dan de statistieken op
-        if (data.role === 'Admin') {
-          await fetchAdminStats();
-        }
       } catch (error) {
         addToast(error.message);
         navigate('/login');
@@ -436,108 +399,46 @@ function Dashboard() {
 
     const fetchAdminStats = async () => {
       try {
-        setIsLoadingStats(true);
-        const response = await fetch('http://127.0.0.1:8000/api/admin/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon statistieken niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.request('/admin/stats');
         setAdminStats(data);
       } catch (error) {
-        addToast(error.message);
-      } finally {
-        setIsLoadingStats(false);
+        console.error('Error fetching admin stats:', error);
       }
     };
 
     const fetchSockets = async () => {
       try {
-        setIsLoadingSockets(true);
-        const response = await fetch('http://127.0.0.1:8000/api/sockets', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon sockets niet ophalen');
-        }
-
-        const data = await response.json();
-        console.log('Fetched sockets:', data); // Debug log
-        
-        // Process sockets to ensure location data is properly formatted
-        const processedSockets = (data.data || []).map(socket => {
-          // Handle location string format (latitude,longitude)
-          if (socket.location && typeof socket.location === 'string' && !socket.latitude) {
-            const [lat, lng] = socket.location.split(',').map(coord => parseFloat(coord.trim()));
-            if (!isNaN(lat) && !isNaN(lng)) {
-              return {
-                ...socket,
-                latitude: lat,
-                longitude: lng
-              };
-            }
-          }
-          return socket;
-        });
-        
-        setSockets(processedSockets);
+        const data = await api.sockets.getAll();
+        setSockets(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
       } catch (error) {
         addToast(error.message);
-      } finally {
-        setIsLoadingSockets(false);
       }
     };
 
     fetchUserData();
+    if (user?.role === 'Admin') {
+      fetchAdminStats();
+    }
     fetchSockets();
-  }, [navigate]);
+  }, [navigate, user?.role]);
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        await fetch('http://127.0.0.1:8000/api/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        addToast('Succesvol uitgelogd', 'success');
-      }
-    } catch (error) {
-      addToast('Error bij uitloggen');
-    } finally {
+      await api.request('/logout', {
+        method: 'POST'
+      });
       localStorage.removeItem('token');
-      navigate('/login');
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error bij uitloggen:', error);
     }
   };
 
   const handleSocketDelete = async (socketId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/socket/delete/${socketId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+      await api.request(`/socket/delete/${socketId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon socket niet verwijderen');
-      }
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol verwijderd', 'success');
@@ -548,22 +449,16 @@ function Dashboard() {
 
   const handleStartSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/start/${selectedSocket.socket_id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      await api.request(`/${user.id}/socket/start/${selectedSocket.socket_id}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error('Kon sessie niet starten: ' + response.statusText);
-      }
-
-      addToast('Sessie succesvol gestart', 'success');
+      setSockets(prevSockets => prevSockets.map(socket => 
+        socket.id === selectedSocket.id 
+          ? { ...socket, status: 'active' }
+          : socket
+      ));
+      addToast('Laadsessie succesvol gestart', 'success');
       setShowSessionModal(false);
     } catch (error) {
       addToast(error.message);
@@ -572,22 +467,16 @@ function Dashboard() {
 
   const handleStopSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/stop/${selectedSocket.socket_id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      await api.request(`/${user.id}/socket/stop/${selectedSocket.socket_id}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error('Kon sessie niet stoppen');
-      }
-
-      addToast('Sessie succesvol gestopt', 'success');
+      setSockets(prevSockets => prevSockets.map(socket => 
+        socket.id === selectedSocket.id 
+          ? { ...socket, status: 'inactive' }
+          : socket
+      ));
+      addToast('Laadsessie succesvol gestopt', 'success');
       setShowSessionModal(false);
     } catch (error) {
       addToast(error.message);
@@ -604,35 +493,14 @@ function Dashboard() {
 
   const handleSocketSubmit = async (formData) => {
     try {
-      const token = localStorage.getItem('token');
-      const socketData = {
-        socket_id: formData.socket_id,
-        location_id: formData.location_id
-      };
-      
-      console.log('Sending socket data:', socketData);
-      
-      const response = await fetch('http://127.0.0.1:8000/api/socket/new', {
+      const newSocket = await api.request('/socket/new', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(socketData)
+        body: JSON.stringify(formData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Kon socket niet toevoegen: ${errorData.message || 'Onbekende fout'}`);
-      }
-
-      const newSocket = await response.json();
-      console.log('Received new socket:', newSocket);
-      
       setSockets(prevSockets => [...prevSockets, newSocket.data]);
-      handleModalClose();
       addToast('Socket succesvol toegevoegd', 'success');
+      setShowModal(false);
     } catch (error) {
       addToast(error.message);
     }

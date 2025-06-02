@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 function LocationDetail() {
   const { locationId } = useParams();
@@ -30,48 +31,15 @@ function LocationDetail() {
         }
 
         // Haal locatie details op
-        const locationResponse = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!locationResponse.ok) {
-          throw new Error('Kon locatie niet ophalen');
-        }
-
-        const locationData = await locationResponse.json();
+        const locationData = await api.request(`/locations/${locationId}`);
         setLocation(locationData);
 
         // Haal sockets op voor deze locatie
-        const socketsResponse = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}/sockets`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!socketsResponse.ok) {
-          throw new Error('Kon sockets niet ophalen');
-        }
-
-        const socketsData = await socketsResponse.json();
+        const socketsData = await api.request(`/locations/${locationId}/sockets`);
         setSockets(Array.isArray(socketsData) ? socketsData : (Array.isArray(socketsData.data) ? socketsData.data : []));
 
         // Haal beschikbare sockets op (zonder locatie)
-        const availableSocketsResponse = await fetch('http://127.0.0.1:8000/api/sockets/available', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!availableSocketsResponse.ok) {
-          throw new Error('Kon beschikbare sockets niet ophalen');
-        }
-
-        const availableSocketsData = await availableSocketsResponse.json();
+        const availableSocketsData = await api.request('/sockets/available');
         setAvailableSockets(Array.isArray(availableSocketsData) ? availableSocketsData : (Array.isArray(availableSocketsData.data) ? availableSocketsData.data : []));
       } catch (error) {
         setError(error.message);
@@ -86,18 +54,9 @@ function LocationDetail() {
 
   const handleSocketDelete = async (socketId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}/sockets/${socketId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+      await api.request(`/locations/${locationId}/sockets/${socketId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon socket niet verwijderen van deze locatie');
-      }
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol verwijderd van deze locatie', 'success');
@@ -108,21 +67,10 @@ function LocationDetail() {
 
   const handleAssignSocket = async (socketId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}/sockets/${socketId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+      const socketData = await api.request(`/locations/${locationId}/sockets/${socketId}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error('Kon socket niet toewijzen aan deze locatie');
-      }
-
-      const socketData = await response.json();
       setSockets(prevSockets => [...prevSockets, socketData.data]);
       setAvailableSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol toegewezen aan deze locatie', 'success');

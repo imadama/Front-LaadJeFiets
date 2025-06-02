@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 function Laadstations() {
   const navigate = useNavigate();
@@ -26,33 +27,11 @@ function Laadstations() {
 
   const checkAdminStatus = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/user', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Kon gebruiker niet ophalen');
-      }
-
-      const userData = await response.json();
+      const userData = await api.user.get();
       
-      const adminCheckResponse = await fetch(`http://127.0.0.1:8000/api/isuseradmin/${userData.id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+      const adminData = await api.request(`/isuseradmin/${userData.id}`, {
+        method: 'POST'
       });
-
-      if (!adminCheckResponse.ok) {
-        throw new Error('Kon admin status niet controleren');
-      }
-
-      const adminData = await adminCheckResponse.json();
       
       if (adminData.role !== 'Admin') {
         navigate('/dashboard');
@@ -69,19 +48,7 @@ function Laadstations() {
 
   const fetchCustomerDetails = async (socketId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/socketbelongsto/${socketId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = await response.json();
+      const data = await api.request(`/socketbelongsto/${socketId}`);
       return {
         username: data.user ? data.user.username : null,
         email: data.user ? data.user.email : null,
@@ -95,22 +62,11 @@ function Laadstations() {
 
   const fetchAllCustomerDetails = async (socketIds) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/socketbelongsto/bulk', {
+      const responseData = await api.request('/socketbelongsto/bulk', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_ids: socketIds }),
+        body: JSON.stringify({ socket_ids: socketIds })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch customer details');
-      }
-
-      const responseData = await response.json();
       if (responseData.status === 'success' && Array.isArray(responseData.data)) {
         // Convert array to object with socket_id as key
         return responseData.data.reduce((acc, item) => {
@@ -166,22 +122,9 @@ function Laadstations() {
           return;
         }
 
-        const response = await fetch('http://127.0.0.1:8000/api/allsockets', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          }
+        const data = await api.request('/allsockets', {
+          method: 'POST'
         });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          console.error('Server response:', errorData);
-          throw new Error(`Kon laadstations niet ophalen: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('Ontvangen data:', data);
         
         // Zorg ervoor dat we altijd met een array werken
         const laadstationsArray = Array.isArray(data) ? data : 

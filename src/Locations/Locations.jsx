@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
   const [form, setForm] = useState({ name: '', address: '', tariff_per_kwh: '' });
@@ -23,27 +24,16 @@ function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
       const payload = {
         user_id: userId,
         name: form.name,
         address: form.address,
         tariff_per_kwh: form.tariff_per_kwh
       };
-      const response = await fetch('http://127.0.0.1:8000/api/locations', {
+      const newLocation = await api.request('/locations', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
         body: JSON.stringify(payload)
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Kon locatie niet toevoegen');
-      }
-      const newLocation = await response.json();
       onSubmit(newLocation);
     } catch (err) {
       setError(err.message);
@@ -148,18 +138,7 @@ function Locations() {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon gebruikersgegevens niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.user.get();
         setUser(data);
       } catch (error) {
         addToast(error.message);
@@ -171,18 +150,7 @@ function Locations() {
 
     const fetchLocations = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/locations/user/${user?.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon locaties niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.request(`/locations/user/${user?.id}`);
         setLocations(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
       } catch (error) {
         addToast(error.message);
@@ -203,18 +171,9 @@ function Locations() {
 
   const handleLocationDelete = async (locationId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/locations/${locationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+      await api.request(`/locations/${locationId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon locatie niet verwijderen');
-      }
 
       setLocations(prev => prev.filter(location => location.id !== locationId));
       addToast('Locatie succesvol verwijderd', 'success');

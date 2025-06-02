@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import EditUserModal from '../components/EditUserModal';
+import api from '../utils/api';
 
 function Instellingen() {
   const [users, setUsers] = useState([]);
@@ -26,22 +27,7 @@ function Instellingen() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/users', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-
-      const responseData = await response.json();
-      console.log('Received users data:', responseData);
+      const responseData = await api.users.getAll();
 
       if (responseData.status === 'success' && Array.isArray(responseData.data)) {
         setUsers(responseData.data);
@@ -63,20 +49,10 @@ function Instellingen() {
 
   const handleEditUser = async (userId, userData) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/users/${userId}`, {
+      await api.request(`/users/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(userData)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user');
-      }
 
       // Refresh the users list
       await fetchUsers();
@@ -87,19 +63,9 @@ function Instellingen() {
 
   const handleDeleteUser = async (userId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
+      await api.request(`/users/${userId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
 
       // Refresh the users list
       await fetchUsers();
