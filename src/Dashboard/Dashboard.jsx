@@ -1,69 +1,82 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../utils/api'
 
 // Import the MapComponent
 const MapComponent = lazy(() => import('./MapComponent'));
 
-function AddSocketModal({ isOpen, onClose, onSubmit }) {
-  const [socketForm, setSocketForm] = useState({ socket_id: '', street: '', number: '', postcode: '', city: '' });
-  const [position, setPosition] = useState(null);
-  const [showMap, setShowMap] = useState(false);
-  const [mapKey, setMapKey] = useState(Date.now());
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeError, setGeocodeError] = useState(null);
+function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
+  const [socketForm, setSocketForm] = useState({ socket_id: '', location_id: '' });
+  const [locations, setLocations] = useState([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-  // Reset everything when modal is closed
+  // Fetch locations for the logged-in user
+  const fetchLocations = async (selectId = null, newLocation = null) => {
+    if (!isOpen || !userId) return;
+    try {
+      setIsLoadingLocations(true);
+      const data = await api.request(`/locations/user/${userId}`);
+      let locationsArr = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+      // If newLocation is provided and not in the list, add it
+      if (newLocation && !locationsArr.some(loc => loc.id === newLocation.id)) {
+        locationsArr = [...locationsArr, newLocation];
+      }
+      setLocations(locationsArr);
+      // Optionally select the new location
+      if (selectId) {
+        setSocketForm(prev => ({ ...prev, location_id: selectId }));
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+    } finally {
+      setIsLoadingLocations(false);
+    }
+  };
+
+  // Expose a refreshLocations function globally for AddLocationModal to call after creation
+  useEffect(() => {
+    window.refreshLocations = (newLocation) => {
+      if (!newLocation) return;
+      fetchLocations(newLocation.id, newLocation);
+    };
+    return () => { delete window.refreshLocations; };
+  }, [isOpen, userId]);
+
+  // Reset form when modal is closed
   useEffect(() => {
     if (!isOpen) {
-      setShowMap(false);
-      setPosition(null);
-      setSocketForm({ socket_id: '', street: '', number: '', postcode: '', city: '' });
-      setMapKey(Date.now());
-      setGeocodeError(null);
-    } else {
-      const timer = setTimeout(() => {
-        setShowMap(true);
-      }, 200);
-      return () => clearTimeout(timer);
+      setSocketForm({ socket_id: '', location_id: '' });
+      setDropdownOpen(false);
+      setLocations([]);
     }
   }, [isOpen]);
 
-  // Geocode address when address fields are filled
-  useEffect(() => {
-    const { street, number, postcode, city } = socketForm;
-    if (street && number && postcode && city) {
-      setGeocodeLoading(true);
-      setGeocodeError(null);
-      const address = `${street} ${number}, ${city}, ${postcode}`;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-        .then(res => res.json())
-        .then(data => {
-          console.log('Nominatim response:', data);
-          if (data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            if (!isNaN(lat) && !isNaN(lon)) {
-              setPosition([lat, lon]);
-              setGeocodeError(null);
-              // Force map reload when new coordinates are found
-              setMapKey(Date.now());
-            } else {
-              setPosition(null);
-              setGeocodeError('Ongeldige coördinaten ontvangen van de geocoding service.');
-            }
-          } else {
-            setPosition(null);
-            setGeocodeError('Adres niet gevonden op de kaart.');
-          }
-        })
-        .catch((error) => {
-          console.error('Geocoding error:', error);
-          setPosition(null);
-          setGeocodeError('Fout bij het zoeken van het adres.');
-        })
-        .finally(() => setGeocodeLoading(false));
+  // Only fetch locations when dropdown is opened
+  const handleDropdownOpen = () => {
+    setDropdownOpen(true);
+    if (!isLoadingLocations) {
+      fetchLocations();
     }
-  }, [socketForm.street, socketForm.number, socketForm.postcode, socketForm.city]);
+  };
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const handleSocketChange = (e) => {
     const { name, value } = e.target;
@@ -73,14 +86,20 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
     }));
   };
 
+  const handleDropdownSelect = (location) => {
+    setSocketForm(prev => ({ ...prev, location_id: location.id }));
+    setDropdownOpen(false);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city) {
+    if (!socketForm.socket_id || !socketForm.location_id) {
       return;
     }
-    const address = `${socketForm.street} ${socketForm.number}, ${socketForm.city}, ${socketForm.postcode}`;
-    onSubmit({ ...socketForm, address }, position);
+    onSubmit(socketForm);
   };
+
+  const selectedLocation = locations.find(l => l.id === Number(socketForm.location_id));
 
   if (!isOpen) return null;
 
@@ -131,119 +150,73 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             </div>
           </div>
 
-          {/* Address Section */}
+          {/* Location Section */}
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
-              <h4 className="card-title text-base mb-2 text-center">Adresgegevens</h4>
+              <h4 className="card-title text-base mb-2 text-center">Locatie</h4>
               <div className="flex flex-col gap-4 w-full">
-                <div className="form-control w-full">
+                <div className="form-control w-full" ref={dropdownRef}>
                   <label className="label">
-                    <span className="label-text">Straatnaam</span>
+                    <span className="label-text">Selecteer een locatie</span>
                   </label>
-                  <input
-                    type="text"
-                    name="street"
-                    value={socketForm.street}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Straatnaam"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Huisnummer</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="number"
-                    value={socketForm.number}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Huisnummer"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Postcode</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="postcode"
-                    value={socketForm.postcode}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Postcode"
-                    required
-                  />
-                </div>
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text">Plaatsnaam</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={socketForm.city}
-                    onChange={handleSocketChange}
-                    className="input input-bordered w-full"
-                    placeholder="Plaatsnaam"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Map Section */}
-          <div className="card bg-base-200 shadow-sm">
-            <div className="card-body p-4">
-              <h4 className="card-title text-base mb-2">Locatie</h4>
-              
-              <div className="h-[350px] w-full rounded-lg overflow-hidden border border-base-300">
-                {showMap ? (
-                  <Suspense fallback={<div className="w-full h-full bg-base-200 flex items-center justify-center">Kaart laden...</div>}>
-                    <div className="w-full h-full">
-                      {geocodeLoading ? (
-                        <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                          <span className="loading loading-spinner loading-lg"></span>
-                        </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="input input-bordered w-full flex justify-between items-center text-left"
+                      onClick={handleDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-expanded={dropdownOpen}
+                    >
+                      {selectedLocation ? (
+                        <span>
+                          {selectedLocation.name}
+                          <span className="block text-xs text-gray-400 font-normal">€ {Number(selectedLocation.tariff_per_kwh).toFixed(2)} per kWh</span>
+                        </span>
                       ) : (
-                        <MapComponent 
-                          key={mapKey}
-                          initialPosition={position}
-                          isViewOnly={true}
-                        />
+                        <span className="text-gray-400">Selecteer een locatie</span>
                       )}
-                    </div>
-                  </Suspense>
-                ) : (
-                  <div className="w-full h-full bg-base-200 flex items-center justify-center">
-                    <span className="loading loading-spinner loading-lg"></span>
+                      <svg className="w-4 h-4 ml-2 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {dropdownOpen && (
+                      <ul
+                        tabIndex={-1}
+                        className="absolute z-20 mt-1 w-full bg-base-100 border border-base-300 rounded shadow-lg max-h-60 overflow-auto"
+                        role="listbox"
+                      >
+                        {isLoadingLocations ? (
+                          <li className="px-4 py-2 flex items-center justify-center">
+                            <span className="loading loading-spinner loading-md"></span>
+                          </li>
+                        ) : locations.length === 0 ? (
+                          <li className="px-4 py-2 text-gray-400">Geen locaties beschikbaar</li>
+                        ) : (
+                          locations.map((location) => (
+                            <li
+                              key={location.id}
+                              role="option"
+                              aria-selected={socketForm.location_id === location.id}
+                              className={`px-4 py-2 cursor-pointer hover:bg-base-200 ${socketForm.location_id === location.id ? 'bg-base-200' : ''}`}
+                              onClick={() => handleDropdownSelect(location)}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{location.name}</span>
+                                <span className="text-xs text-gray-400">€ {Number(location.tariff_per_kwh).toFixed(2)} per kWh</span>
+                              </div>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    )}
                   </div>
-                )}
+                  <button
+                    type="button"
+                    className="btn btn-link mt-2 text-primary"
+                    onClick={onAddLocation}
+                  >
+                    + Nieuwe Locatie
+                  </button>
+                </div>
               </div>
-              
-              {position && (
-                <div className="mt-2 badge badge-success gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  <span className="text-xs">Locatie gevonden: {position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
-                </div>
-              )}
-              
-              {!position && !geocodeLoading && (
-                <div className="text-sm text-gray-500 mt-2 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-4 h-4 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  <span>Vul het adres in om de locatie te vinden</span>
-                </div>
-              )}
-              
-              {geocodeError && (
-                <div className="mt-2 text-error text-sm">
-                  {geocodeError}
-                </div>
-              )}
             </div>
           </div>
 
@@ -254,9 +227,119 @@ function AddSocketModal({ isOpen, onClose, onSubmit }) {
             <button 
               type="submit" 
               className="btn btn-primary" 
-              disabled={!position || !socketForm.street || !socketForm.number || !socketForm.postcode || !socketForm.city}
+              disabled={!socketForm.socket_id || !socketForm.location_id}
             >
               Socket Toevoegen
+            </button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" className="modal-backdrop">
+        <button onClick={onClose}>close</button>
+      </form>
+    </dialog>
+  );
+}
+
+function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
+  const [form, setForm] = useState({ name: '', address: '', tariff_per_kwh: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setForm({ name: '', address: '', tariff_per_kwh: '' });
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const payload = {
+        user_id: userId,
+        name: form.name,
+        address: form.address,
+        tariff_per_kwh: form.tariff_per_kwh
+      };
+      const newLocation = await api.request('/locations', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      onSubmit(newLocation);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-lg bg-base-100">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-xl">Nieuwe Locatie Toevoegen</h3>
+          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Naam</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Naam van de locatie"
+              required
+            />
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Adres</span>
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Adres van de locatie"
+              required
+            />
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Tarief per kWh</span>
+            </label>
+            <input
+              type="number"
+              name="tariff_per_kwh"
+              value={form.tariff_per_kwh}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              placeholder="Bijv. 0.25"
+              step="0.01"
+              min="0"
+              required
+            />
+          </div>
+          {error && <div className="alert alert-error"><span>{error}</span></div>}
+          <div className="modal-action flex justify-end gap-2">
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isLoading}>Annuleren</button>
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? <span className="loading loading-spinner loading-sm"></span> : 'Locatie Toevoegen'}
             </button>
           </div>
         </form>
@@ -284,6 +367,7 @@ function Dashboard() {
     activeSockets: 0
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -303,24 +387,8 @@ function Dashboard() {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon gebruikersgegevens niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.user.get();
         setUser(data);
-
-        // Als de gebruiker admin is, haal dan de statistieken op
-        if (data.role === 'Admin') {
-          await fetchAdminStats();
-        }
       } catch (error) {
         addToast(error.message);
         navigate('/login');
@@ -332,21 +400,10 @@ function Dashboard() {
     const fetchAdminStats = async () => {
       try {
         setIsLoadingStats(true);
-        const response = await fetch('http://127.0.0.1:8000/api/admin/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon statistieken niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.request('/admin/stats');
         setAdminStats(data);
       } catch (error) {
-        addToast(error.message);
+        console.error('Error fetching admin stats:', error);
       } finally {
         setIsLoadingStats(false);
       }
@@ -355,38 +412,8 @@ function Dashboard() {
     const fetchSockets = async () => {
       try {
         setIsLoadingSockets(true);
-        const response = await fetch('http://127.0.0.1:8000/api/sockets', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon sockets niet ophalen');
-        }
-
-        const data = await response.json();
-        console.log('Fetched sockets:', data); // Debug log
-        
-        // Process sockets to ensure location data is properly formatted
-        const processedSockets = (data.data || []).map(socket => {
-          // Handle location string format (latitude,longitude)
-          if (socket.location && typeof socket.location === 'string' && !socket.latitude) {
-            const [lat, lng] = socket.location.split(',').map(coord => parseFloat(coord.trim()));
-            if (!isNaN(lat) && !isNaN(lng)) {
-              return {
-                ...socket,
-                latitude: lat,
-                longitude: lng
-              };
-            }
-          }
-          return socket;
-        });
-        
-        setSockets(processedSockets);
+        const data = await api.sockets.getAll();
+        setSockets(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
       } catch (error) {
         addToast(error.message);
       } finally {
@@ -395,44 +422,29 @@ function Dashboard() {
     };
 
     fetchUserData();
+    if (user?.role === 'Admin') {
+      fetchAdminStats();
+    }
     fetchSockets();
-  }, [navigate]);
+  }, [navigate, user?.role]);
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        await fetch('http://127.0.0.1:8000/api/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        addToast('Succesvol uitgelogd', 'success');
-      }
-    } catch (error) {
-      addToast('Error bij uitloggen');
-    } finally {
+      await api.request('/logout', {
+        method: 'POST'
+      });
       localStorage.removeItem('token');
-      navigate('/login');
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error bij uitloggen:', error);
     }
   };
 
   const handleSocketDelete = async (socketId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/socket/delete/${socketId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+      await api.request(`/socket/delete/${socketId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Kon socket niet verwijderen');
-      }
 
       setSockets(prevSockets => prevSockets.filter(socket => socket.id !== socketId));
       addToast('Socket succesvol verwijderd', 'success');
@@ -443,22 +455,16 @@ function Dashboard() {
 
   const handleStartSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/start/${selectedSocket.socket_id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      await api.request(`/${user.id}/socket/start/${selectedSocket.socket_id}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error('Kon sessie niet starten: ' + response.statusText);
-      }
-
-      addToast('Sessie succesvol gestart', 'success');
+      setSockets(prevSockets => prevSockets.map(socket => 
+        socket.id === selectedSocket.id 
+          ? { ...socket, status: 'active' }
+          : socket
+      ));
+      addToast('Laadsessie succesvol gestart', 'success');
       setShowSessionModal(false);
     } catch (error) {
       addToast(error.message);
@@ -467,22 +473,16 @@ function Dashboard() {
 
   const handleStopSession = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/socket/stop/${selectedSocket.socket_id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ socket_id: selectedSocket.socket_id })
+      await api.request(`/${user.id}/socket/stop/${selectedSocket.socket_id}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error('Kon sessie niet stoppen');
-      }
-
-      addToast('Sessie succesvol gestopt', 'success');
+      setSockets(prevSockets => prevSockets.map(socket => 
+        socket.id === selectedSocket.id 
+          ? { ...socket, status: 'inactive' }
+          : socket
+      ));
+      addToast('Laadsessie succesvol gestopt', 'success');
       setShowSessionModal(false);
     } catch (error) {
       addToast(error.message);
@@ -497,52 +497,16 @@ function Dashboard() {
     setShowModal(false);
   };
 
-  const handleSocketSubmit = async (formData, position) => {
-    if (!position || !formData.address) {
-      addToast('Selecteer eerst een locatie en vul het adres in');
-      return;
-    }
-    
+  const handleSocketSubmit = async (formData) => {
     try {
-      const token = localStorage.getItem('token');
-      const socketData = {
-        socket_id: `charger_${formData.socket_id}`,
-        address: formData.address,
-        latitude: position[0],
-        longitude: position[1],
-        location: `${position[0]},${position[1]}`
-      };
-      
-      console.log('Sending socket data:', socketData);
-      
-      const response = await fetch('http://127.0.0.1:8000/api/socket/new', {
+      const newSocket = await api.request('/socket/new', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(socketData)
+        body: JSON.stringify(formData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Kon socket niet toevoegen: ${errorData.message || 'Onbekende fout'}`);
-      }
-
-      const newSocket = await response.json();
-      console.log('Received new socket:', newSocket);
-      
-      const socketWithLocation = {
-        ...newSocket.data,
-        address: formData.address,
-        latitude: position[0],
-        longitude: position[1]
-      };
-      
-      setSockets(prevSockets => [...prevSockets, socketWithLocation]);
-      handleModalClose();
+      setSockets(prevSockets => [...prevSockets, newSocket.data]);
       addToast('Socket succesvol toegevoegd', 'success');
+      setShowModal(false);
     } catch (error) {
       addToast(error.message);
     }
@@ -551,6 +515,14 @@ function Dashboard() {
   const handleSessionModalOpen = (socket) => {
     setSelectedSocket(socket);
     setShowSessionModal(true);
+  };
+
+  // Add location to locations list in AddSocketModal after creation
+  const handleLocationCreated = (newLocation) => {
+    if (!newLocation) return;
+    if (typeof window !== 'undefined' && window.refreshLocations) {
+      window.refreshLocations(newLocation);
+    }
   };
 
   if (isLoading) {
@@ -780,6 +752,15 @@ function Dashboard() {
         isOpen={showModal}
         onClose={handleModalClose}
         onSubmit={handleSocketSubmit}
+        onAddLocation={() => setShowLocationModal(true)}
+        userId={user?.id}
+      />
+
+      <AddLocationModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSubmit={handleLocationCreated}
+        userId={user?.id}
       />
 
       <dialog className="modal" open={showSessionModal}>

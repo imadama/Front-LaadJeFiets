@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import SettingsModal from './SettingsModal';
 import NotificationsModal from './NotificationsModal';
+import api from '../utils/api';
 
 function Header() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [showSettings, setShowSettings] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  // const [notifications, setNotifications] = useState([]);
+  // const [showNotifications, setShowNotifications] = useState(false);
 
   // Apply theme on initial render
   useEffect(() => {
@@ -18,21 +19,7 @@ function Header() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const response = await fetch('http://127.0.0.1:8000/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Kon gebruikersgegevens niet ophalen');
-        }
-
-        const data = await response.json();
+        const data = await api.user.get();
         setUser(data);
       } catch (error) {
         console.error('Error:', error);
@@ -42,31 +29,20 @@ function Header() {
     // Initial fetch
     fetchUserData();
 
-    // Set up interval to fetch every second
-    const intervalId = setInterval(fetchUserData, 2000);
+    // Set up interval to fetch every 30 seconds (reduced from 2 seconds)
+    const intervalId = setInterval(fetchUserData, 30000);
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
+  /* Commented out notifications polling
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!user?.id) return;
       
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://127.0.0.1:8000/api/${user.id}/notifications`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Could not fetch notifications');
-        }
-
-        const data = await response.json();
+        const data = await api.notifications.get(user.id);
         setNotifications(data);
       } catch (error) {
         console.error('Error fetching notifications:', error);
@@ -74,9 +50,11 @@ function Header() {
     };
 
     fetchNotifications();
-    const intervalId = setInterval(fetchNotifications, 2000);
+    // Set up interval to fetch every 5 seconds (reduced from 2 seconds)
+    const intervalId = setInterval(fetchNotifications, 5000);
     return () => clearInterval(intervalId);
   }, [user?.id]);
+  */
 
   const handleThemeChange = (e) => {
     const newTheme = e.target.value;
@@ -85,9 +63,17 @@ function Header() {
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
-  const handleClearNotifications = () => {
-    setNotifications([]);
+  /* Commented out notification clearing
+  const handleClearNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      await api.notifications.clear(user.id);
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
   };
+  */
 
   return (
     <>
@@ -100,6 +86,8 @@ function Header() {
               <>
                 <a href="/status" className="btn btn-ghost">Status</a>
                 <a href="/laadstations" className="btn btn-ghost">Laadstations</a>
+                <a href="/locations" className="btn btn-ghost">Locations</a>
+                <a href="/instellingen" className="btn btn-ghost">Instellingen</a>
               </>
             )}
           </div>
@@ -107,6 +95,7 @@ function Header() {
         <div className="flex-none gap-4">
           {user ? (
             <>
+              {/* Commented out notification button
               <button 
                 className="btn btn-ghost btn-circle"
                 onClick={() => setShowNotifications(true)}
@@ -122,6 +111,7 @@ function Header() {
                   )}
                 </div>
               </button>
+              */}
 
               <div className="dropdown dropdown-end">
                 <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
@@ -143,12 +133,8 @@ function Header() {
                     try {
                       const token = localStorage.getItem('token');
                       if (token) {
-                        await fetch('http://127.0.0.1:8000/api/logout', {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Accept': 'application/json',
-                          },
+                        await api.request('/logout', {
+                          method: 'POST'
                         });
                       }
                       localStorage.removeItem('token');
@@ -174,6 +160,7 @@ function Header() {
         onThemeChange={handleThemeChange}
       />
 
+      {/* Commented out notifications modal
       <NotificationsModal
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
@@ -181,6 +168,7 @@ function Header() {
         userId={user?.id}
         onClear={handleClearNotifications}
       />
+      */}
     </>
   );
 }
