@@ -399,19 +399,25 @@ function Dashboard() {
 
     const fetchAdminStats = async () => {
       try {
+        setIsLoadingStats(true);
         const data = await api.request('/admin/stats');
         setAdminStats(data);
       } catch (error) {
         console.error('Error fetching admin stats:', error);
+      } finally {
+        setIsLoadingStats(false);
       }
     };
 
     const fetchSockets = async () => {
       try {
+        setIsLoadingSockets(true);
         const data = await api.sockets.getAll();
         setSockets(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
       } catch (error) {
         addToast(error.message);
+      } finally {
+        setIsLoadingSockets(false);
       }
     };
 
