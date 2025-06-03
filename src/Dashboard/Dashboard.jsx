@@ -368,6 +368,7 @@ function Dashboard() {
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [balance, setBalance] = useState(null);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -421,13 +422,23 @@ function Dashboard() {
       }
     };
 
+    const fetchBalance = async () => {
+      try {
+        const data = await api.request('/credits/balance');
+        setBalance(data?.balance ?? 0);
+      } catch (error) {
+        setBalance(0);
+      }
+    };
+
     fetchUserData();
     if (user?.role === 'Admin') {
       fetchAdminStats();
     }
     fetchSockets();
+    fetchBalance();
   }, [navigate, user?.role]);
-
+  
   const handleLogout = async () => {
     try {
       await api.request('/logout', {
@@ -562,25 +573,37 @@ function Dashboard() {
             </div>
             
             <div className="space-y-4">
-              <div className="stats shadow">
-                <div className="stat">
-                  <div className="stat-title">Email</div>
-                  <div className="stat-value text-sm md:text-2xl">{user?.email}</div>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="stats shadow flex-1 min-w-[220px]">
+                  <div className="stat">
+                    <div className="stat-title">Email</div>
+                    <div className="stat-value text-sm md:text-2xl">{user?.email}</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="stats shadow">
-                <div className="stat">
-                  <div className="stat-title">Role</div>
-                  <div className="stat-value text-sm md:text-2xl">{user?.role || 'User'}</div>
+                <div className="stats shadow flex-1 min-w-[220px]">
+                  <div className="stat">
+                    <div className="stat-title">Role</div>
+                    <div className="stat-value text-sm md:text-2xl">{user?.role || 'User'}</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="stats shadow">
-                <div className="stat">
-                  <div className="stat-title">Account aangemaakt op</div>
-                  <div className="stat-value text-sm md:text-2xl">
-                    {new Date(user?.created_at).toLocaleDateString('nl-NL')}
+                <div className="stats shadow flex-1 min-w-[220px]">
+                  <div className="stat">
+                    <div className="stat-title">Account aangemaakt op</div>
+                    <div className="stat-value text-sm md:text-2xl">
+                      {new Date(user?.created_at).toLocaleDateString('nl-NL')}
+                    </div>
+                  </div>
+                </div>
+                <div className="stats shadow flex-1 min-w-[220px]">
+                  <div className="stat">
+                    <div className="stat-title">Saldo</div>
+                    <div className="stat-value text-success">
+                      {balance !== null ? `€ ${Number(balance).toFixed(2)}` : <span className="loading loading-spinner loading-xs"></span>}
+                    </div>
+                    <div className="stat-desc">
+                      Je huidige tegoed<br />
+                      <a href="#" className="link link-primary text-xs">Tegoed toevoegen</a>
+                    </div>
                   </div>
                 </div>
               </div>

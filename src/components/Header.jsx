@@ -90,6 +90,7 @@ function Header() {
                 <a href="/instellingen" className="btn btn-ghost">Instellingen</a>
               </>
             )}
+            <a href="/saldo" className="btn btn-ghost">Saldo</a>
           </div>
         </div>
         <div className="flex-none gap-4">

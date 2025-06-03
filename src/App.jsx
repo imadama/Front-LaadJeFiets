@@ -10,6 +10,7 @@ import Header from './components/Header'
 import Instellingen from './pages/Instellingen'
 import Locations from './Locations/Locations'
 import LocationDetail from './Locations/LocationDetail'
+import Saldo from './pages/Saldo'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/instellingen" element={<Instellingen />} />
         <Route path="/locations" element={<Locations />} />
         <Route path="/locations/:locationId" element={<LocationDetail />} />
+        <Route path="/saldo" element={<Saldo />} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
