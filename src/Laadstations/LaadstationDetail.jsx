@@ -320,27 +320,21 @@ function LaadstationDetail() {
                     <table className="table table-zebra w-full">
                       <thead>
                         <tr>
-                          <th>ID</th>
                           <th>Start Tijd</th>
                           <th>Stop Tijd</th>
                           <th>Begin Energie (kWh)</th>
                           <th>Eind Energie (kWh)</th>
                           <th>Verbruikt (kWh)</th>
-                          <th>Aangemaakt</th>
-                          <th>Bijgewerkt</th>
                         </tr>
                       </thead>
                       <tbody>
                         {sessionHistory.map((session) => (
                           <tr key={session.id} className="hover">
-                            <td className="font-mono">{session.id}</td>
-                            <td>{formatDateTime(session.start_time)}</td>
-                            <td>{formatDateTime(session.stop_time)}</td>
+                            <td className="text-sm opacity-70">{formatDateTime(session.created_at)}</td>
+                            <td className="text-sm opacity-70">{formatDateTime(session.updated_at)}</td>
                             <td className="font-mono">{formatEnergy(session.total_energy_begin)}</td>
                             <td className="font-mono">{formatEnergy(session.total_energy_end)}</td>
                             <td className="font-mono font-semibold">{formatEnergy(session.final_energy)}</td>
-                            <td className="text-sm opacity-70">{formatDateTime(session.created_at)}</td>
-                            <td className="text-sm opacity-70">{formatDateTime(session.updated_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -412,4 +406,4 @@ function LaadstationDetail() {
   );
 }
 
-export default LaadstationDetail; 
+export default LaadstationDetail;
