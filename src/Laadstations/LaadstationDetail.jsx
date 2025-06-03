@@ -151,6 +151,18 @@ function LaadstationDetail() {
     loadData();
   }, [socketId, navigate]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(async () => {
+      const sessionInfo = await fetchSessionInfo(socketId);
+      if (sessionInfo) {
+        setSessionHistory(sessionInfo.data);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isAdmin, socketId]);
+
   const formatDateTime = (dateTimeStr) => {
     return new Date(dateTimeStr).toLocaleString('nl-NL', {
       day: '2-digit',
