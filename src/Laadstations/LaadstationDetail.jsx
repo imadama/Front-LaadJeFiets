@@ -1,6 +1,7 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 const MapComponent = lazy(() => import('../Dashboard/MapComponent'));
 
@@ -97,6 +98,37 @@ function LaadstationDetail() {
       }
     } catch (error) {
       setSocketLocation(null);
+    }
+  };
+
+  const generateQRCodeValue = () => {
+    // Genereer een URL die naar de laadstation detail pagina gaat
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/laadstations/${socketId}`;
+  };
+
+  const downloadQRCode = () => {
+    const svg = document.getElementById('qr-code');
+    if (svg) {
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const pngUrl = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.href = pngUrl;
+        downloadLink.download = `laadstation-${socketId}-qr.png`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      };
+      
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     }
   };
 
@@ -323,6 +355,13 @@ function LaadstationDetail() {
             >
               Locatie
             </a>
+            <a 
+              role="tab" 
+              className={`tab ${activeTab === 'qr-code' ? 'tab-active' : ''}`}
+              onClick={() => setActiveTab('qr-code')}
+            >
+              QR Code
+            </a>
           </div>
           <div className="py-4">
             {activeTab === 'transacties' && (
@@ -419,6 +458,41 @@ function LaadstationDetail() {
               ) : (
                 <div className="alert alert-warning">Geen locatiegegevens beschikbaar voor deze socket.</div>
               )
+            )}
+            {activeTab === 'qr-code' && (
+              <div className="space-y-6">
+                <div className="alert alert-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span>Scan deze QR-code om een laadsessie te starten voor deze socket</span>
+                </div>
+
+                <div className="card bg-base-100 shadow-xl">
+                  <div className="card-body items-center text-center">
+                    <h2 className="card-title mb-4">QR Code voor Socket {socketId}</h2>
+                    <div className="bg-white p-4 rounded-lg shadow-lg">
+                      <QRCodeSVG
+                        id="qr-code"
+                        value={generateQRCodeValue()}
+                        size={256}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </div>
+                    <p className="mt-4 text-sm text-gray-600">
+                      Scan deze QR-code met je telefoon om een laadsessie te starten
+                    </p>
+                    <button 
+                      className="btn btn-primary mt-4"
+                      onClick={downloadQRCode}
+                    >
+                      <i className="fa-solid fa-download mr-2"></i>
+                      Download QR Code
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
