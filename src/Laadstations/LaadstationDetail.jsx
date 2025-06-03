@@ -328,15 +328,24 @@ function LaadstationDetail() {
                         </tr>
                       </thead>
                       <tbody>
-                        {sessionHistory.map((session) => (
-                          <tr key={session.id} className="hover">
-                            <td className="text-sm opacity-70">{formatDateTime(session.created_at)}</td>
-                            <td className="text-sm opacity-70">{formatDateTime(session.updated_at)}</td>
-                            <td className="font-mono">{formatEnergy(session.total_energy_begin)}</td>
-                            <td className="font-mono">{formatEnergy(session.total_energy_end)}</td>
-                            <td className="font-mono font-semibold">{formatEnergy(session.final_energy)}</td>
-                          </tr>
-                        ))}
+                        {sessionHistory.map((session) => {
+                          const eindEnergie = formatEnergy(session.total_energy_end);
+                          const verbruikt = formatEnergy(session.final_energy);
+                          const isOngoing = isNaN(Number(eindEnergie)) || isNaN(Number(verbruikt));
+                          return (
+                            <tr key={session.id} className="hover">
+                              <td className="text-sm opacity-70">{formatDateTime(session.created_at)}</td>
+                              <td className="text-sm opacity-70">{formatDateTime(session.updated_at)}</td>
+                              <td className="font-mono">{formatEnergy(session.total_energy_begin)}</td>
+                              <td className="font-mono">
+                                {isOngoing ? <span className="italic text-warning">Bezig...</span> : eindEnergie}
+                              </td>
+                              <td className="font-mono font-semibold">
+                                {isOngoing ? <span className="italic text-warning">Bezig...</span> : verbruikt}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
