@@ -17,6 +17,16 @@ function LaadstationDetail() {
   const [toasts, setToasts] = useState([]);
   const [socketLocation, setSocketLocation] = useState(null);
 
+  const fetchSessionInfo = async (socketId) => {
+    try {
+      const data = await api.request(`/getsessioninfo/${socketId}`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching session info:', error);
+      return null;
+    }
+  };
+
   const addToast = (message, type = 'error') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -61,6 +71,35 @@ function LaadstationDetail() {
     }
   };
 
+  const fetchCustomerDetails = async (socketId) => {
+    try {
+      const data = await api.request(`/socketbelongsto/${socketId}`);
+      return {
+        username: data.user ? data.user.username : null,
+        email: data.user ? data.user.email : null,
+        address: data.address
+      };
+    } catch (error) {
+      console.error('Error fetching customer details:', error);
+      return null;
+    }
+  };
+
+  const fetchSocketLocation = async (socketId) => {
+    try {
+      const data = await api.request(`/socketinfo/${socketId}`);
+      // Accept latitude/longitude or location string
+      if (data.latitude && data.longitude) {
+        setSocketLocation([parseFloat(data.latitude), parseFloat(data.longitude)]);
+      } else if (data.location && typeof data.location === 'string') {
+        const [lat, lng] = data.location.split(',').map(coord => parseFloat(coord.trim()));
+        if (!isNaN(lat) && !isNaN(lng)) setSocketLocation([lat, lng]);
+      }
+    } catch (error) {
+      setSocketLocation(null);
+    }
+  };
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -81,45 +120,6 @@ function LaadstationDetail() {
         console.error('Error checking admin status:', error);
         navigate('/dashboard');
         return false;
-      }
-    };
-
-    const fetchCustomerDetails = async (socketId) => {
-      try {
-        const data = await api.request(`/socketbelongsto/${socketId}`);
-        return {
-          username: data.user ? data.user.username : null,
-          email: data.user ? data.user.email : null,
-          address: data.address
-        };
-      } catch (error) {
-        console.error('Error fetching customer details:', error);
-        return null;
-      }
-    };
-
-    const fetchSessionInfo = async (socketId) => {
-      try {
-        const data = await api.request(`/getsessioninfo/${socketId}`);
-        return data;
-      } catch (error) {
-        console.error('Error fetching session info:', error);
-        return null;
-      }
-    };
-
-    const fetchSocketLocation = async (socketId) => {
-      try {
-        const data = await api.request(`/socketinfo/${socketId}`);
-        // Accept latitude/longitude or location string
-        if (data.latitude && data.longitude) {
-          setSocketLocation([parseFloat(data.latitude), parseFloat(data.longitude)]);
-        } else if (data.location && typeof data.location === 'string') {
-          const [lat, lng] = data.location.split(',').map(coord => parseFloat(coord.trim()));
-          if (!isNaN(lat) && !isNaN(lng)) setSocketLocation([lat, lng]);
-        }
-      } catch (error) {
-        setSocketLocation(null);
       }
     };
 
