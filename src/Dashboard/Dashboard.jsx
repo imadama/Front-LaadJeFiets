@@ -679,16 +679,13 @@ function Dashboard() {
                                 </p>
                               ) : socket.location ? (
                                 <p className="text-sm text-gray-500 mt-1">
-                                  Locatie: {socket.location}
+                                  Locatie: {socket.address}
                                 </p>
                               ) : (
                                 <p className="text-sm text-gray-500 mt-1">
-                                  Locatie: Onbekend
+                                  Locatie: {socket.address}
                                 </p>
                               )}
-                              <p className="text-sm text-gray-500 mt-1">
-                                Adres: {socket.address || <span className="text-gray-400 italic">Onbekend</span>}
-                              </p>
                             </div>
                             
                             <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
