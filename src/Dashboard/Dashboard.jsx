@@ -602,7 +602,7 @@ function Dashboard() {
                     </div>
                     <div className="stat-desc">
                       Je huidige tegoed<br />
-                      <a href="#" className="link link-primary text-xs">Tegoed toevoegen</a>
+                      <a href="/saldo" className="link link-primary text-xs">Tegoed toevoegen</a>
                     </div>
                   </div>
                 </div>
