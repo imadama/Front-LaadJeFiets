@@ -103,31 +103,48 @@ function LaadstationDetail() {
 
   const generateQRCodeValue = () => {
     // Genereer een URL die naar de laadstation detail pagina gaat
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/laadstations/${socketId}`;
+    const baseUrl = window.location.origin;  // Haalt de basis URL op (bijv. https://mijnapp.nl)
+    return `${baseUrl}/laadstations/${socketId}`;  // Maakt een complete URL met het socket ID
   };
 
   const downloadQRCode = () => {
+    // Haal het SVG element op met de QR-code
     const svg = document.getElementById('qr-code');
     if (svg) {
+      // Converteer het SVG element naar een string
       const svgData = new XMLSerializer().serializeToString(svg);
+      
+      // Maak een canvas element aan om de QR-code op te tekenen
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+      
+      // Maak een nieuw Image object aan
       const img = new Image();
       
+      // Wacht tot de afbeelding is geladen
       img.onload = () => {
+        // Stel de canvas grootte in op basis van de afbeelding
         canvas.width = img.width;
         canvas.height = img.height;
+        
+        // Teken de afbeelding op het canvas
         ctx.drawImage(img, 0, 0);
+        
+        // Converteer het canvas naar een PNG data URL
         const pngUrl = canvas.toDataURL('image/png');
+        
+        // Maak een download link aan
         const downloadLink = document.createElement('a');
         downloadLink.href = pngUrl;
-        downloadLink.download = `laadstation-${socketId}-qr.png`;
+        downloadLink.download = `laadstation-${socketId}-qr.png`;  // Bestandsnaam voor de download
+        
+        // Voeg de link toe aan de pagina, klik erop en verwijder hem weer
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
       };
       
+      // Zet de SVG data om naar een base64 string en laad deze in de afbeelding
       img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     }
   };
@@ -461,6 +478,7 @@ function LaadstationDetail() {
             )}
             {activeTab === 'qr-code' && (
               <div className="space-y-6">
+                {/* Informatieve melding over het gebruik van de QR-code */}
                 <div className="alert alert-info">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -468,24 +486,32 @@ function LaadstationDetail() {
                   <span>Scan deze QR-code om een laadsessie te starten voor deze socket</span>
                 </div>
 
+                {/* Container voor de QR-code met download functionaliteit */}
                 <div className="card bg-base-100 shadow-xl">
                   <div className="card-body items-center text-center">
+                    {/* Titel van de QR-code sectie */}
                     <h2 className="card-title mb-4">QR Code voor Socket {socketId}</h2>
+                    
+                    {/* Container voor de QR-code met witte achtergrond */}
                     <div className="bg-white p-4 rounded-lg shadow-lg">
                       <QRCodeSVG
-                        id="qr-code"
-                        value={generateQRCodeValue()}
-                        size={256}
-                        level="H"
-                        includeMargin={true}
+                        id="qr-code"  // ID voor het ophalen van het element bij download
+                        value={generateQRCodeValue()}  // De URL die in de QR-code komt
+                        size={256}  // Grootte van de QR-code in pixels
+                        level="H"  // Foutcorrectie niveau (H = hoog)
+                        includeMargin={true}  // Voegt witruimte toe rond de QR-code
                       />
                     </div>
+                    
+                    {/* Uitleg tekst onder de QR-code */}
                     <p className="mt-4 text-sm text-gray-600">
                       Scan deze QR-code met je telefoon om een laadsessie te starten
                     </p>
+                    
+                    {/* Download knop */}
                     <button 
                       className="btn btn-primary mt-4"
-                      onClick={downloadQRCode}
+                      onClick={downloadQRCode}  // Roept de download functie aan bij klikken
                     >
                       <i className="fa-solid fa-download mr-2"></i>
                       Download QR Code
