@@ -575,7 +575,8 @@ function Dashboard() {
           error: 'Onvoldoende saldo',
           tariffPerKwh: tariffPerKwh,
           maxHours: 0,
-          maxKwh: 0
+          maxKwh: 0,
+          currentBalance: currentBalance
         });
         return;
       }
@@ -866,34 +867,46 @@ function Dashboard() {
                 {chargingInfo && (
                   <div className="mt-4 p-4 bg-base-200 rounded-lg">
                     <h4 className="font-semibold mb-2">Laadinfo</h4>
-                    {chargingInfo.error ? (
-                      <div className="alert alert-warning">
-                        <span>{chargingInfo.error}</span>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Tarief:</span>
+                        <br />
+                        <span className="text-primary">€ {chargingInfo.tariffPerKwh.toFixed(2)} per kWh</span>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Tarief:</span>
-                          <br />
-                          <span className="text-primary">€ {chargingInfo.tariffPerKwh.toFixed(2)} per kWh</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Huidig saldo:</span>
-                          <br />
-                          <span className="text-success">€ {chargingInfo.currentBalance.toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Max kWh:</span>
-                          <br />
-                          <span className="text-info">{chargingInfo.maxKwh.toFixed(2)} kWh</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Max laadtijd:</span>
-                          <br />
-                          <span className="text-warning">{chargingInfo.maxHours.toFixed(1)} uur</span>
-                        </div>
+                      <div>
+                        <span className="font-medium">Huidig saldo:</span>
+                        <br />
+                        <span className="text-success">€ {chargingInfo.currentBalance.toFixed(2)}</span>
                       </div>
-                    )}
+                      <div>
+                        <span className="font-medium">Max kWh:</span>
+                        <br />
+                        <span className="text-info">{chargingInfo.maxKwh.toFixed(2)} kWh</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Max laadtijd:</span>
+                        <br />
+                        <span className="text-warning">{chargingInfo.maxHours.toFixed(1)} uur</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Saldo waarschuwing */}
+                {chargingInfo && (
+                  (chargingInfo.error === 'Onvoldoende saldo' || 
+                   (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh))
+                ) && (
+                  <div className="mt-4 alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <div className="font-semibold">Onvoldoende saldo!</div>
+                      {chargingInfo.tariffPerKwh > 0 && (
+                        <div>Je hebt minimaal <strong>€ {Number(chargingInfo.tariffPerKwh).toFixed(2)}</strong> nodig om een sessie te starten.</div>
+                      )}
+                    </div>
                   </div>
                 )}
                 
@@ -907,6 +920,11 @@ function Dashboard() {
                   <button 
                     className="btn btn-primary" 
                     onClick={handleStartSession}
+                    disabled={chargingInfo && (
+                      chargingInfo.error === 'Onvoldoende saldo' || 
+                      chargingInfo.error === 'Tarief niet beschikbaar' ||
+                      (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh)
+                    )}
                   >
                     Start Sessie
                   </button>
