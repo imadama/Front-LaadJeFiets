@@ -170,7 +170,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
                       {selectedLocation ? (
                         <span>
                           {selectedLocation.name}
-                          <span className="block text-xs text-gray-400 font-normal">€ {Number(selectedLocation.tariff_per_kwh).toFixed(2)} per kWh</span>
+                          <span className="block text-xs text-gray-400 font-normal">€ {Number(selectedLocation.tarrif_per_kwh).toFixed(2)} per kWh</span>
                         </span>
                       ) : (
                         <span className="text-gray-400">Selecteer een locatie</span>
@@ -200,7 +200,7 @@ function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
                             >
                               <div className="flex flex-col">
                                 <span className="font-medium">{location.name}</span>
-                                <span className="text-xs text-gray-400">€ {Number(location.tariff_per_kwh).toFixed(2)} per kWh</span>
+                                <span className="text-xs text-gray-400">€ {Number(location.tarrif_per_kwh).toFixed(2)} per kWh</span>
                               </div>
                             </li>
                           ))
@@ -242,13 +242,13 @@ function AddSocketModal({ isOpen, onClose, onSubmit, onAddLocation, userId }) {
 }
 
 function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
-  const [form, setForm] = useState({ name: '', address: '', tariff_per_kwh: '' });
+  const [form, setForm] = useState({ name: '', address: '', tarrif_per_kwh: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!isOpen) {
-      setForm({ name: '', address: '', tariff_per_kwh: '' });
+      setForm({ name: '', address: '', tarrif_per_kwh: '' });
       setError(null);
     }
   }, [isOpen]);
@@ -267,7 +267,7 @@ function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
         user_id: userId,
         name: form.name,
         address: form.address,
-        tariff_per_kwh: form.tariff_per_kwh
+        tarrif_per_kwh: form.tarrif_per_kwh
       };
       const newLocation = await api.request('/locations', {
         method: 'POST',
@@ -325,8 +325,8 @@ function AddLocationModal({ isOpen, onClose, onSubmit, userId }) {
             </label>
             <input
               type="number"
-              name="tariff_per_kwh"
-              value={form.tariff_per_kwh}
+              name="tarrif_per_kwh"
+              value={form.tarrif_per_kwh}
               onChange={handleChange}
               className="input input-bordered w-full"
               placeholder="Bijv. 0.25"
@@ -369,6 +369,7 @@ function Dashboard() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [balance, setBalance] = useState(null);
+  const [chargingInfo, setChargingInfo] = useState(null);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -526,6 +527,13 @@ function Dashboard() {
   const handleSessionModalOpen = (socket) => {
     setSelectedSocket(socket);
     setShowSessionModal(true);
+    
+    // Bereken laadtijd als de socket een location_id heeft
+    if (socket.location_id) {
+      calculateChargingTime(socket.location_id);
+    } else {
+      setChargingInfo(null);
+    }
   };
 
   // Add location to locations list in AddSocketModal after creation
@@ -533,6 +541,68 @@ function Dashboard() {
     if (!newLocation) return;
     if (typeof window !== 'undefined' && window.refreshLocations) {
       window.refreshLocations(newLocation);
+    }
+  };
+
+  // Functie om tarief op te halen en berekening te maken
+  const calculateChargingTime = async (locationId) => {
+    try {
+      // Haal tarief op van de locatie
+      const tariffData = await api.request(`/tarrif/${locationId}`, {
+        method: 'POST'
+      });
+      
+      console.log('Tariff API response:', tariffData);
+      console.log('Tariff data keys:', Object.keys(tariffData));
+      
+      const tariffPerKwh = Number(tariffData || 0);
+      console.log('Tariff per kWh:', tariffPerKwh);
+      
+      const currentBalance = Number(balance || 0);
+      
+      if (tariffPerKwh <= 0) {
+        setChargingInfo({
+          error: 'Tarief niet beschikbaar',
+          tariffPerKwh: 0,
+          maxHours: 0,
+          maxKwh: 0
+        });
+        return;
+      }
+      
+      if (currentBalance <= 0) {
+        setChargingInfo({
+          error: 'Onvoldoende saldo',
+          tariffPerKwh: tariffPerKwh,
+          maxHours: 0,
+          maxKwh: 0,
+          currentBalance: currentBalance
+        });
+        return;
+      }
+      
+      // Bereken hoeveel kWh er geladen kan worden
+      const maxKwh = currentBalance / tariffPerKwh;
+      
+      // Aanname: gemiddelde laadsnelheid van 7.4 kW (standaard thuislaadpaal)
+      const averageChargingPower = 7.4; // kW
+      const maxHours = maxKwh / averageChargingPower;
+      
+      setChargingInfo({
+        tariffPerKwh: tariffPerKwh,
+        maxKwh: maxKwh,
+        maxHours: maxHours,
+        currentBalance: currentBalance
+      });
+      
+    } catch (error) {
+      console.error('Error calculating charging time:', error);
+      setChargingInfo({
+        error: 'Fout bij ophalen tarief',
+        tariffPerKwh: 0,
+        maxHours: 0,
+        maxKwh: 0
+      });
     }
   };
 
@@ -792,7 +862,55 @@ function Dashboard() {
               <div className="card-body">
                 <h2 className="card-title">Sessie beheer voor {selectedSocket?.socket_id}</h2>
                 <p>Start of stop een laadsessie voor deze socket.</p>
-                <div className="card-actions justify-end mt-4">
+                
+                {/* Laadinfo sectie */}
+                {chargingInfo && (
+                  <div className="mt-4 p-4 bg-base-200 rounded-lg">
+                    <h4 className="font-semibold mb-2">Laadinfo</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Tarief:</span>
+                        <br />
+                        <span className="text-primary">€ {chargingInfo.tariffPerKwh.toFixed(2)} per kWh</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Huidig saldo:</span>
+                        <br />
+                        <span className="text-success">€ {chargingInfo.currentBalance.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Max kWh:</span>
+                        <br />
+                        <span className="text-info">{chargingInfo.maxKwh.toFixed(2)} kWh</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Max laadtijd:</span>
+                        <br />
+                        <span className="text-warning">{chargingInfo.maxHours.toFixed(1)} uur</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Saldo waarschuwing */}
+                {chargingInfo && (
+                  (chargingInfo.error === 'Onvoldoende saldo' || 
+                   (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh))
+                ) && (
+                  <div className="mt-4 alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <div className="font-semibold">Onvoldoende saldo!</div>
+                      {chargingInfo.tariffPerKwh > 0 && (
+                        <div>Je hebt minimaal <strong>€ {Number(chargingInfo.tariffPerKwh).toFixed(2)}</strong> nodig om een sessie te starten.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="card-actions justify-end mt-4 gap-2">
                   <button 
                     className="btn btn-error" 
                     onClick={handleStopSession}
@@ -802,14 +920,28 @@ function Dashboard() {
                   <button 
                     className="btn btn-primary" 
                     onClick={handleStartSession}
+                    disabled={chargingInfo && (
+                      chargingInfo.error === 'Onvoldoende saldo' || 
+                      chargingInfo.error === 'Tarief niet beschikbaar' ||
+                      (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh)
+                    )}
                   >
                     Start Sessie
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setShowSessionModal(false)}
+                  >
+                    Annuleren
                   </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="button" onClick={() => setShowSessionModal(false)}>close</button>
+        </form>
       </dialog>
     </div>
   );
