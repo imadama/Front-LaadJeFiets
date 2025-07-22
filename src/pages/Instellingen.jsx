@@ -2,6 +2,113 @@ import React, { useEffect, useState, useRef } from 'react';
 import EditUserModal from '../components/EditUserModal';
 import api from '../utils/api';
 
+// Credit Management Modal Component
+function CreditManagementModal({ isOpen, onClose, user, onCreditUpdate }) {
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!amount || isNaN(amount) || Number(amount) < 0) {
+      setError('Voer een geldig bedrag in');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await api.request(`/credits/admin/set/${user.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ amount: Number(amount) })
+      });
+      
+      onCreditUpdate();
+      onClose();
+      setAmount('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setAmount('');
+    setError(null);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <dialog className="modal modal-open">
+      <div className="modal-box">
+        <h3 className="font-bold text-lg mb-4">
+          Saldo Instellen - {user?.username}
+        </h3>
+        
+        <div className="mb-4 p-3 bg-base-200 rounded-lg">
+          <span className="text-sm text-base-content/70">Huidig saldo: </span>
+          <span className="font-mono text-success font-semibold">
+            € {Number(user?.balance || 0).toFixed(2)}
+          </span>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Nieuw saldo (€)</span>
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="input input-bordered w-full"
+              placeholder={Number(user?.balance || 0).toFixed(2)}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="alert alert-error">
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="modal-action">
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              onClick={handleClose}
+              disabled={loading}
+            >
+              Annuleren
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="loading loading-spinner loading-sm"></span>
+              ) : (
+                'Saldo Instellen'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+      <form method="dialog" className="modal-backdrop">
+        <button type="button" onClick={handleClose}>close</button>
+      </form>
+    </dialog>
+  );
+}
+
 function Instellingen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,6 +116,8 @@ function Instellingen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditUser, setCreditUser] = useState(null);
   const searchInputRef = useRef(null);
 
   useEffect(() => {
@@ -30,7 +139,19 @@ function Instellingen() {
       const responseData = await api.users.getAll();
 
       if (responseData.status === 'success' && Array.isArray(responseData.data)) {
-        setUsers(responseData.data);
+        // Fetch credit balance for each user
+        const usersWithCredits = await Promise.all(
+          responseData.data.map(async (user) => {
+            try {
+              const creditData = await api.request(`/credits/balance/${user.id}`);
+              return { ...user, balance: creditData?.balance ?? 0 };
+            } catch (err) {
+              console.error(`Error fetching credits for user ${user.id}:`, err);
+              return { ...user, balance: 0 };
+            }
+          })
+        );
+        setUsers(usersWithCredits);
         setError(null);
       } else {
         throw new Error('Invalid response format');
@@ -153,6 +274,7 @@ function Instellingen() {
                     <th>Gebruikersnaam</th>
                     <th>Email</th>
                     <th>Rol</th>
+                    <th>Saldo</th>
                     <th>Geregistreerd</th>
                     <th>Acties</th>
                   </tr>
@@ -171,17 +293,33 @@ function Instellingen() {
                           {user.role}
                         </div>
                       </td>
+                      <td>
+                        <span className="font-mono text-success">
+                          € {Number(user.balance || 0).toFixed(2)}
+                        </span>
+                      </td>
                       <td>{new Date(user.created_at).toLocaleDateString()}</td>
                       <td>
-                        <button 
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setShowEditModal(true);
-                          }}
-                        >
-                          Bewerken
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowEditModal(true);
+                            }}
+                          >
+                            Bewerken
+                          </button>
+                          <button 
+                            className="btn btn-success btn-sm"
+                            onClick={() => {
+                              setCreditUser(user);
+                              setShowCreditModal(true);
+                            }}
+                          >
+                            Credits
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -201,6 +339,16 @@ function Instellingen() {
         user={selectedUser}
         onSave={handleEditUser}
         onDelete={handleDeleteUser}
+      />
+
+      <CreditManagementModal
+        isOpen={showCreditModal}
+        onClose={() => {
+          setShowCreditModal(false);
+          setCreditUser(null);
+        }}
+        user={creditUser}
+        onCreditUpdate={fetchUsers}
       />
     </div>
   );
