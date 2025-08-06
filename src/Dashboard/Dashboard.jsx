@@ -370,6 +370,8 @@ function Dashboard() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [balance, setBalance] = useState(null);
   const [chargingInfo, setChargingInfo] = useState(null);
+  const [sessionMinutes, setSessionMinutes] = useState('');
+  const [calculatedPrice, setCalculatedPrice] = useState(0);
 
   const addToast = (message, type = 'error') => {
     const id = Date.now();
@@ -467,17 +469,54 @@ function Dashboard() {
 
   const handleStartSession = async () => {
     try {
-      await api.request(`/${user.id}/socket/start/${selectedSocket.socket_id}`, {
-        method: 'POST'
+      const minutes = parseInt(sessionMinutes);
+      if (!minutes || minutes <= 0) {
+        addToast('Voer een geldig aantal minuten in');
+        return;
+      }
+
+      // Controleer of we tarief informatie hebben
+      if (!chargingInfo || !chargingInfo.tariffPerKwh) {
+        addToast('Tarief informatie niet beschikbaar');
+        return;
+      }
+
+      // // Start de sessie
+      // await api.request(`/${user.id}/socket/start/${selectedSocket.socket_id}`, {
+      //   method: 'POST',
+      //   body: JSON.stringify({
+      //     duration_minutes: minutes
+      //   })
+      // });
+
+      // Bereken het af te trekken bedrag
+      const amountToDeduct = calculatePrice(minutes, chargingInfo.tariffPerKwh);
+      
+      // Boek credits af
+      await api.request('/credits/deduct', {
+        method: 'POST',
+        body: JSON.stringify({
+          minutes: minutes,
+          tariff_per_kwh: chargingInfo.tariffPerKwh,
+          amount: amountToDeduct
+        })
       });
 
+      // Update sockets status
       setSockets(prevSockets => prevSockets.map(socket => 
         socket.id === selectedSocket.id 
           ? { ...socket, status: 'active' }
           : socket
       ));
-      addToast('Laadsessie succesvol gestart', 'success');
+
+      // Update het saldo na het afboeken
+      const newBalance = await api.request('/credits/balance');
+      setBalance(newBalance?.balance ?? 0);
+
+      addToast(`Laadsessie succesvol gestart voor ${minutes} minuten`, 'success');
       setShowSessionModal(false);
+      setSessionMinutes('');
+      setCalculatedPrice(0);
     } catch (error) {
       addToast(error.message);
     }
@@ -527,6 +566,8 @@ function Dashboard() {
   const handleSessionModalOpen = (socket) => {
     setSelectedSocket(socket);
     setShowSessionModal(true);
+    setSessionMinutes('');
+    setCalculatedPrice(0);
     
     // Bereken laadtijd als de socket een location_id heeft
     if (socket.location_id) {
@@ -542,6 +583,21 @@ function Dashboard() {
     if (typeof window !== 'undefined' && window.refreshLocations) {
       window.refreshLocations(newLocation);
     }
+  };
+
+  // Functie om prijs te berekenen op basis van minuten en tarief
+  const calculatePrice = (minutes, tariffPerKwh) => {
+    if (!minutes || !tariffPerKwh || minutes <= 0 || tariffPerKwh <= 0) {
+      return 0;
+    }
+    
+    // Aanname: gemiddelde laadsnelheid van 7.4 kW (standaard thuislaadpaal)
+    const averageChargingPower = 7.4; // kW
+    const hours = minutes / 60; // converteer minuten naar uren
+    const kwh = hours * averageChargingPower; // bereken kWh
+    const price = kwh * tariffPerKwh; // bereken totale prijs
+    
+    return price;
   };
 
   // Functie om tarief op te halen en berekening te maken
@@ -863,6 +919,51 @@ function Dashboard() {
                 <h2 className="card-title">Sessie beheer voor {selectedSocket?.socket_id}</h2>
                 <p>Start of stop een laadsessie voor deze socket.</p>
                 
+                {/* Invoerveld voor minuten */}
+                <div className="mt-4">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-semibold">Laadduur in minuten</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered w-full"
+                      placeholder="Bijv. 30"
+                      value={sessionMinutes}
+                      onChange={(e) => {
+                        const minutes = e.target.value;
+                        setSessionMinutes(minutes);
+                        
+                        // Bereken dynamisch de prijs
+                        if (chargingInfo && chargingInfo.tariffPerKwh && minutes) {
+                          const price = calculatePrice(parseInt(minutes), chargingInfo.tariffPerKwh);
+                          setCalculatedPrice(price);
+                        } else {
+                          setCalculatedPrice(0);
+                        }
+                      }}
+                      min="1"
+                      max="1440"
+                    />
+                    <label className="label">
+                      <span className="label-text-alt text-gray-500">Voer in hoeveel minuten u wilt laden (max 24 uur)</span>
+                    </label>
+                  </div>
+                  
+                  {/* Dynamische prijsweergave */}
+                  {sessionMinutes && calculatedPrice > 0 && (
+                    <div className="mt-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-primary">Geschatte kosten:</span>
+                        <span className="text-lg font-bold text-primary">€ {calculatedPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Voor {sessionMinutes} minuten laden bij {chargingInfo?.tariffPerKwh?.toFixed(2)} €/kWh
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Laadinfo sectie */}
                 {chargingInfo && (
                   <div className="mt-4 p-4 bg-base-200 rounded-lg">
@@ -920,11 +1021,15 @@ function Dashboard() {
                   <button 
                     className="btn btn-primary" 
                     onClick={handleStartSession}
-                    disabled={chargingInfo && (
-                      chargingInfo.error === 'Onvoldoende saldo' || 
-                      chargingInfo.error === 'Tarief niet beschikbaar' ||
-                      (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh)
-                    )}
+                    disabled={
+                      !sessionMinutes || 
+                      parseInt(sessionMinutes) <= 0 ||
+                      (chargingInfo && (
+                        chargingInfo.error === 'Onvoldoende saldo' || 
+                        chargingInfo.error === 'Tarief niet beschikbaar' ||
+                        (chargingInfo.tariffPerKwh && chargingInfo.currentBalance < chargingInfo.tariffPerKwh)
+                      ))
+                    }
                   >
                     Start Sessie
                   </button>
