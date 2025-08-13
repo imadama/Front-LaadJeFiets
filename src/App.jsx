@@ -11,7 +11,6 @@ import Instellingen from './pages/Instellingen'
 import Locations from './Locations/Locations'
 import LocationDetail from './Locations/LocationDetail'
 import Saldo from './pages/Saldo'
-import QRCodes from './pages/QRCodes'
 
 function App() {
   return (
@@ -28,7 +27,6 @@ function App() {
         <Route path="/locations" element={<Locations />} />
         <Route path="/locations/:locationId" element={<LocationDetail />} />
         <Route path="/saldo" element={<Saldo />} />
-        <Route path="/qr-codes" element={<QRCodes />} />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
