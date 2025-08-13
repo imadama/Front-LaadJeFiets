@@ -692,6 +692,11 @@ function Dashboard() {
                 <button onClick={handleModalOpen} className="btn btn-primary">
                   Nieuwe Socket
                 </button>
+                {user?.role === 'Admin' && (
+                  <button onClick={() => navigate('/qr-codes')} className="btn btn-secondary">
+                    QR Codes
+                  </button>
+                )}
                 <button onClick={handleLogout} className="btn btn-ghost">
                   Logout
                 </button>
